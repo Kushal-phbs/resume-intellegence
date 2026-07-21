@@ -30,10 +30,13 @@ flowchart LR
   - `api/` - FastAPI routers and endpoints
   - `config/` - Environment and application settings
   - `core/` - Logging, lifespan management, middleware, exception handling
+  - `db/` - Async SQLAlchemy engine, session factory, declarative base, and DB dependency
   - `dependencies/` - FastAPI dependency providers
   - `llm/` - LLM abstractions, models, provider plumbing, and response parsing
+  - `models/` - SQLAlchemy ORM models (persistence layer)
   - `prompts/` - Prompt abstractions and prompt manager
   - `services/` - Business logic and orchestration
+- `alembic/` - Alembic migration environment and versioned migration scripts
 - `tests/` - Unit tests for core backend components
 - `.env.example` - Example environment variables for local development
 - `requirements.txt` - Python dependency list
@@ -79,6 +82,13 @@ Required variables:
 - `LLM_PROVIDER` - Selected provider name (currently `groq`).
 - `GROQ_API_KEY` - Groq API key used for authentication.
 - `GROQ_MODEL` - Groq model identifier.
+- `DATABASE_URL` - Async PostgreSQL connection string (`postgresql+asyncpg://...`).
+- `DB_ECHO` - Echo SQL statements to logs (development only).
+- `DB_POOL_SIZE` / `DB_MAX_OVERFLOW` - Database connection pool sizing.
+- `SECRET_KEY` - Secret used to sign JWTs (minimum 32 characters).
+- `JWT_ALGORITHM` - JWT signing algorithm (e.g. `HS256`).
+- `ACCESS_TOKEN_EXPIRE_MINUTES` - Access token lifetime in minutes.
+- `REFRESH_TOKEN_EXPIRE_DAYS` - Refresh token lifetime in days.
 
 Do not commit real secrets or API keys to source control.
 
@@ -98,6 +108,26 @@ FastAPI automatically exposes interactive API documentation:
 
 - `http://127.0.0.1:8000/docs` for Swagger UI
 - `http://127.0.0.1:8000/redoc` for ReDoc
+
+## Database
+
+Start a local PostgreSQL instance with Docker Compose:
+
+```bash
+docker compose up -d postgres
+```
+
+Apply the latest schema migrations from the `backend/` directory:
+
+```bash
+alembic upgrade head
+```
+
+Generate a new migration after changing models in `app/models/`:
+
+```bash
+alembic revision --autogenerate -m "describe the change"
+```
 
 ## Ruff Commands
 
