@@ -53,6 +53,34 @@ class AuthenticationException(AppException):
         super().__init__(message=message, status_code=status_code)
 
 
+class InvalidTokenException(AuthenticationException):
+    """Raised when a token is malformed, invalid, or fails verification."""
+
+    def __init__(self, message: str = "Invalid authentication token") -> None:
+        super().__init__(message=message, status_code=401)
+
+
+class TokenExpiredException(AuthenticationException):
+    """Raised when a token is structurally valid but expired."""
+
+    def __init__(self, message: str = "Authentication token has expired") -> None:
+        super().__init__(message=message, status_code=401)
+
+
+class UserAlreadyExistsException(AuthenticationException):
+    """Raised when attempting to register a user with an existing email."""
+
+    def __init__(self, message: str = "A user with this email already exists") -> None:
+        super().__init__(message=message, status_code=409)
+
+
+class InvalidCredentialsException(AuthenticationException):
+    """Raised when submitted login credentials are invalid."""
+
+    def __init__(self, message: str = "Invalid credentials") -> None:
+        super().__init__(message=message, status_code=401)
+
+
 class AuthorizationException(AppException):
     """Raised when an authenticated principal is not permitted to perform an action."""
 
