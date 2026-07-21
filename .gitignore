@@ -1,6 +1,13 @@
-# Python virtual environment
-backend/.venv/
-
 # Python
 __pycache__/
 *.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+backend/.venv/
+
+# Environment files
+.env
+backend/.env
