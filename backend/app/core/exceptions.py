@@ -95,3 +95,42 @@ class ExternalServiceException(AppException):
         self, message: str = "External service error", status_code: int = 502
     ) -> None:
         super().__init__(message=message, status_code=status_code)
+
+
+class ResumeNotFoundException(ResourceNotFoundException):
+    """Raised when a requested resume (or resume version) cannot be found."""
+
+    def __init__(self, message: str = "Resume not found") -> None:
+        super().__init__(message=message, status_code=404)
+
+
+class UnsupportedFileTypeException(ValidationException):
+    """Raised when an uploaded file's extension or content type is not allowed."""
+
+    def __init__(self, message: str = "Unsupported file type") -> None:
+        super().__init__(message=message, status_code=415)
+
+
+class FileTooLargeException(ValidationException):
+    """Raised when an uploaded file exceeds the configured maximum size."""
+
+    def __init__(
+        self, message: str = "Uploaded file exceeds maximum allowed size"
+    ) -> None:
+        super().__init__(message=message, status_code=413)
+
+
+class StorageException(AppException):
+    """Raised when a storage backend operation fails."""
+
+    def __init__(
+        self, message: str = "Storage operation failed", status_code: int = 500
+    ) -> None:
+        super().__init__(message=message, status_code=status_code)
+
+
+class StorageFileNotFoundException(StorageException):
+    """Raised when a stored file cannot be found by its storage key."""
+
+    def __init__(self, message: str = "Stored file not found") -> None:
+        super().__init__(message=message, status_code=404)

@@ -3,7 +3,7 @@
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _SUPPORTED_JWT_ALGORITHMS = {
@@ -41,6 +41,19 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
+
+    resume_upload_dir: str = "uploads/resumes"
+    resume_max_upload_size_mb: int = 5
+    resume_allowed_extensions_csv: str = Field(
+        default="pdf,doc,docx", validation_alias="RESUME_ALLOWED_EXTENSIONS"
+    )
+    resume_allowed_mime_types_csv: str = Field(
+        default=(
+            "application/pdf,application/msword,"
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ),
+        validation_alias="RESUME_ALLOWED_MIME_TYPES",
+    )
 
     model_config = SettingsConfigDict(
         env_file=str(Path(__file__).resolve().parents[2] / ".env"),
@@ -107,6 +120,45 @@ class Settings(BaseSettings):
             raise ValueError("REFRESH_TOKEN_EXPIRE_DAYS must be a positive integer.")
 
         return self
+
+    @model_validator(mode="after")
+    def _validate_resume_settings(self) -> "Settings":
+        if not self.resume_upload_dir:
+            raise ValueError("RESUME_UPLOAD_DIR must be configured.")
+
+        if self.resume_max_upload_size_mb <= 0:
+            raise ValueError("RESUME_MAX_UPLOAD_SIZE_MB must be a positive integer.")
+
+        if not self.resume_allowed_extensions:
+            raise ValueError("RESUME_ALLOWED_EXTENSIONS must not be empty.")
+
+        if not self.resume_allowed_mime_types:
+            raise ValueError("RESUME_ALLOWED_MIME_TYPES must not be empty.")
+
+        return self
+
+    @property
+    def resume_allowed_extensions(self) -> list[str]:
+        """Allowed resume file extensions, parsed from a comma-separated list."""
+        return [
+            item.strip().lower().lstrip(".")
+            for item in self.resume_allowed_extensions_csv.split(",")
+            if item.strip()
+        ]
+
+    @property
+    def resume_allowed_mime_types(self) -> list[str]:
+        """Allowed resume MIME types, parsed from a comma-separated list."""
+        return [
+            item.strip()
+            for item in self.resume_allowed_mime_types_csv.split(",")
+            if item.strip()
+        ]
+
+    @property
+    def resume_max_upload_size_bytes(self) -> int:
+        """Maximum allowed resume upload size, expressed in bytes."""
+        return self.resume_max_upload_size_mb * 1024 * 1024
 
 
 @lru_cache

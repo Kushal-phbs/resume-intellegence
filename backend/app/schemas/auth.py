@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
+from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
 from app.enums import TokenType, UserRole
 
@@ -12,7 +14,7 @@ from app.enums import TokenType, UserRole
 class RegisterRequest(BaseModel):
     """Payload for account registration."""
 
-    email: str = Field(min_length=3, max_length=255)
+    email: EmailStr
     password: str = Field(min_length=8, max_length=128)
     full_name: str = Field(min_length=1, max_length=255)
 
@@ -20,7 +22,7 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     """Payload for login requests."""
 
-    email: str = Field(min_length=3, max_length=255)
+    email: EmailStr
     password: str = Field(min_length=8, max_length=128)
 
 
@@ -33,8 +35,8 @@ class RefreshTokenRequest(BaseModel):
 class TokenResponse(BaseModel):
     """Standard JWT token response payload."""
 
-    access_token: str
-    refresh_token: str
+    access_token: str = Field(min_length=1)
+    refresh_token: str = Field(min_length=1)
     token_type: Literal["bearer"] = "bearer"
 
 
@@ -48,3 +50,24 @@ class TokenPayload(BaseModel):
     iat: int
     exp: int
     role: UserRole | None = None
+
+    @model_validator(mode="after")
+    def validate_timestamps(self) -> "TokenPayload":
+        """Ensure token expiration is later than issued-at time."""
+        if self.exp <= self.iat:
+            raise ValueError("Token exp must be greater than iat")
+        return self
+
+
+class CurrentUserResponse(BaseModel):
+    """Response model for the authenticated user profile endpoint."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    email: str
+    full_name: str
+    role: UserRole
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime

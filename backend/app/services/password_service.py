@@ -17,11 +17,26 @@ class PasswordService:
         self._password_hash = PasswordHash.recommended()
 
     def hash_password(self, password: str) -> str:
-        """Return a secure hash for the provided plain text password."""
+        """Return a secure hash for a plain-text password.
+
+        Args:
+            password: Plain-text password.
+
+        Returns:
+            One-way password hash including algorithm metadata and salt.
+        """
         return self._password_hash.hash(password)
 
     def verify_password(self, plain_password: str, hashed_password: str) -> bool:
-        """Return True when the plain password matches the stored hash."""
+        """Return whether a plain password matches a stored hash.
+
+        Args:
+            plain_password: Candidate plain-text password.
+            hashed_password: Stored password hash.
+
+        Returns:
+            ``True`` when the password matches, otherwise ``False``.
+        """
         try:
             return self._password_hash.verify(plain_password, hashed_password)
         except (UnknownHashError, ValueError):

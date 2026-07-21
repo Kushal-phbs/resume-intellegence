@@ -34,11 +34,25 @@ def test_register_request_rejects_short_password() -> None:
         )
 
 
+def test_register_request_rejects_invalid_email() -> None:
+    with pytest.raises(ValidationError):
+        RegisterRequest(
+            email="not-an-email",
+            password="StrongPass123!",
+            full_name="John Doe",
+        )
+
+
 def test_login_request_valid_payload() -> None:
     payload = LoginRequest(email="user@example.com", password="StrongPass123!")
 
     assert payload.email == "user@example.com"
     assert payload.password == "StrongPass123!"
+
+
+def test_login_request_rejects_invalid_email() -> None:
+    with pytest.raises(ValidationError):
+        LoginRequest(email="bad-email", password="StrongPass123!")
 
 
 def test_refresh_token_request_requires_token() -> None:
@@ -62,6 +76,14 @@ def test_token_response_rejects_non_bearer_type() -> None:
             refresh_token="refresh-token-value",
             token_type="jwt",
         )
+
+
+def test_token_response_rejects_empty_tokens() -> None:
+    with pytest.raises(ValidationError):
+        TokenResponse(access_token="", refresh_token="refresh-token-value")
+
+    with pytest.raises(ValidationError):
+        TokenResponse(access_token="access-token-value", refresh_token="")
 
 
 def test_token_payload_accepts_access_type_with_role() -> None:
@@ -99,4 +121,14 @@ def test_token_payload_rejects_invalid_type() -> None:
             type="custom",
             iat=1735689600,
             exp=1736294400,
+        )
+
+
+def test_token_payload_rejects_non_increasing_timestamps() -> None:
+    with pytest.raises(ValidationError):
+        TokenPayload(
+            sub="user-1",
+            type=TokenType.ACCESS,
+            iat=1735689600,
+            exp=1735689600,
         )

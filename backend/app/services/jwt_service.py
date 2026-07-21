@@ -21,7 +21,15 @@ class JWTService:
     """Create and validate access/refresh JWTs."""
 
     def create_access_token(self, subject: str, role: str) -> str:
-        """Create a signed access token for a subject and role."""
+        """Create a signed access token for a subject and role.
+
+        Args:
+            subject: User identifier for the JWT subject claim.
+            role: User role for authorization decisions.
+
+        Returns:
+            Encoded JWT string.
+        """
         now = datetime.now(UTC)
         exp = now + timedelta(minutes=settings.access_token_expire_minutes)
         payload: dict[str, Any] = {
@@ -38,7 +46,14 @@ class JWTService:
         )
 
     def create_refresh_token(self, subject: str) -> str:
-        """Create a signed refresh token for a subject."""
+        """Create a signed refresh token for a subject.
+
+        Args:
+            subject: User identifier for the JWT subject claim.
+
+        Returns:
+            Encoded JWT string.
+        """
         now = datetime.now(UTC)
         exp = now + timedelta(days=settings.refresh_token_expire_days)
         payload: dict[str, Any] = {
@@ -53,8 +68,14 @@ class JWTService:
             algorithm=settings.jwt_algorithm,
         )
 
-    def decode_token(self, token: str) -> dict:
+    def decode_token(self, token: str) -> dict[str, Any]:
         """Decode and validate a token, returning its payload.
+
+        Args:
+            token: Encoded JWT string.
+
+        Returns:
+            Decoded payload dictionary.
 
         Raises:
             TokenExpiredException: If token expiration has passed.
@@ -78,7 +99,14 @@ class JWTService:
         return payload
 
     def verify_token(self, token: str) -> bool:
-        """Return True if token is valid and not expired; otherwise False."""
+        """Return True if token is valid and not expired.
+
+        Args:
+            token: Encoded JWT string.
+
+        Returns:
+            ``True`` when token is valid and unexpired, otherwise ``False``.
+        """
         try:
             self.decode_token(token)
         except (TokenExpiredException, InvalidTokenException):

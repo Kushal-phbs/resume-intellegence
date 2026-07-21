@@ -89,6 +89,10 @@ Required variables:
 - `JWT_ALGORITHM` - JWT signing algorithm (e.g. `HS256`).
 - `ACCESS_TOKEN_EXPIRE_MINUTES` - Access token lifetime in minutes.
 - `REFRESH_TOKEN_EXPIRE_DAYS` - Refresh token lifetime in days.
+- `RESUME_UPLOAD_DIR` - Directory where uploaded resume files are stored.
+- `RESUME_MAX_UPLOAD_SIZE_MB` - Maximum allowed resume upload size, in megabytes.
+- `RESUME_ALLOWED_EXTENSIONS` - Comma-separated list of allowed resume file extensions.
+- `RESUME_ALLOWED_MIME_TYPES` - Comma-separated list of allowed resume MIME types.
 
 Do not commit real secrets or API keys to source control.
 
@@ -108,6 +112,127 @@ FastAPI automatically exposes interactive API documentation:
 
 - `http://127.0.0.1:8000/docs` for Swagger UI
 - `http://127.0.0.1:8000/redoc` for ReDoc
+
+The Swagger UI includes an **Authorize** button for Bearer JWT authentication.
+
+## Authentication API
+
+Authentication endpoints:
+
+- `POST /auth/register` - Register a user and return access/refresh tokens.
+- `POST /auth/login` - Authenticate with email/password and return tokens.
+- `POST /auth/refresh` - Exchange a refresh token for a new token pair.
+- `GET /users/me` - Return the current authenticated user.
+
+### JWT Authentication
+
+- Token type is Bearer.
+- Access tokens include subject, role, token type, issued-at, and expiration claims.
+- Refresh tokens include subject, token type, issued-at, and expiration claims.
+
+Use the Authorization header:
+
+```http
+Authorization: Bearer <access_token>
+```
+
+### Local Authentication Workflow
+
+1. Call `POST /auth/register` with email, password, and full name.
+2. Copy the returned `access_token`.
+3. Click **Authorize** in Swagger and paste `Bearer <access_token>`.
+4. Call `GET /users/me` to verify authenticated access.
+5. When access token expires, call `POST /auth/refresh` with `refresh_token`.
+
+## Resume API
+
+Resume management endpoints require Bearer authentication and only operate on
+the authenticated user's own records.
+
+- `POST /resumes/upload` - Upload a new resume using `multipart/form-data`.
+- `GET /resumes` - List the current user's resumes.
+- `GET /resumes/{resume_id}` - Fetch a single resume owned by the current user.
+- `GET /resumes/{resume_id}/download` - Download the stored resume file.
+- `DELETE /resumes/{resume_id}` - Delete a resume and its stored file versions.
+
+### Upload Requirements
+
+- Supported formats: `pdf`, `doc`, `docx`
+- Allowed MIME types: `application/pdf`, `application/msword`,
+  `application/vnd.openxmlformats-officedocument.wordprocessingml.document`
+- Maximum upload size: `RESUME_MAX_UPLOAD_SIZE_MB` megabytes (default: `5`)
+
+Uploads use a multipart request with a `title` field and a `file` field. For
+example:
+
+```http
+POST /resumes/upload
+Authorization: Bearer <access_token>
+Content-Type: multipart/form-data
+```
+
+The download endpoint returns the stored file as a `FileResponse` without
+exposing any server filesystem paths.
+
+## Resume Intelligence API
+
+The analysis API is built on the existing analysis service and only exposes
+thin REST endpoints. Every endpoint requires Bearer authentication and only
+returns data for the authenticated user's own resumes.
+
+### Workflow
+
+```mermaid
+flowchart TD
+    Upload[Resume Upload]
+    Analyze[Analysis]
+    Store[Stored Results]
+    Summary[Summary]
+    Skills[Skills]
+    Keywords[Keywords]
+
+    Upload --> Analyze --> Store --> Summary
+    Store --> Skills
+    Store --> Keywords
+```
+
+### Endpoints
+
+- `POST /analysis/{resume_id}` - Run a new analysis for a resume.
+- `GET /analysis/{resume_id}` - Return the latest completed analysis.
+- `GET /analysis/{resume_id}/summary` - Return ATS score, overall score,
+  strengths, weaknesses, and recommendations.
+- `GET /analysis/{resume_id}/skills` - Return extracted skills.
+- `GET /analysis/{resume_id}/keywords` - Return extracted keywords.
+- `GET /analysis/{resume_id}/history` - Return previous analyses newest first.
+- `DELETE /analysis/{analysis_id}` - Delete one analysis record.
+
+### Example Calls
+
+```http
+POST /analysis/550e8400-e29b-41d4-a716-446655440000
+Authorization: Bearer <access_token>
+```
+
+```http
+GET /analysis/550e8400-e29b-41d4-a716-446655440000/summary
+Authorization: Bearer <access_token>
+```
+
+```http
+GET /analysis/550e8400-e29b-41d4-a716-446655440000/skills
+Authorization: Bearer <access_token>
+```
+
+```http
+GET /analysis/550e8400-e29b-41d4-a716-446655440000/keywords
+Authorization: Bearer <access_token>
+```
+
+```http
+DELETE /analysis/550e8400-e29b-41d4-a716-446655440001
+Authorization: Bearer <access_token>
+```
 
 ## Database
 
@@ -172,7 +297,6 @@ The platform is built to add new providers without changing endpoint or service 
 Potential next steps include:
 
 - Add support for OpenAI, Gemini, Ollama, and other LLM providers
-- Add authentication and user management
 - Add database persistence and repositories
 - Add vector search / RAG support
 - Add metrics, tracing, and observability integrations

@@ -12,6 +12,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base, TimestampMixin, UUIDMixin
 
 if TYPE_CHECKING:
+    from app.models.resume_analysis import ResumeAnalysis
     from app.models.resume_version import ResumeVersion
     from app.models.user import User
 
@@ -36,4 +37,9 @@ class Resume(UUIDMixin, TimestampMixin, Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
         order_by="ResumeVersion.version_number",
+    )
+    analyses: Mapped[list["ResumeAnalysis"]] = relationship(
+        back_populates="resume",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )

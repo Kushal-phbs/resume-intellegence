@@ -7,9 +7,13 @@ from uuid import uuid4
 
 import pytest
 
-from app.core.exceptions import InvalidCredentialsException, UserAlreadyExistsException
-from app.enums import UserRole
-from app.schemas.auth import LoginRequest, RegisterRequest
+from app.core.exceptions import (
+    InvalidCredentialsException,
+    InvalidTokenException,
+    UserAlreadyExistsException,
+)
+from app.enums import TokenType, UserRole
+from app.schemas.auth import LoginRequest, RefreshTokenRequest, RegisterRequest
 from app.services.auth_service import AuthService
 
 
@@ -181,3 +185,79 @@ def test_login_wrong_password_raises_invalid_credentials() -> None:
     )
     jwt_service.create_access_token.assert_not_called()
     jwt_service.create_refresh_token.assert_not_called()
+
+
+def test_refresh_successful_returns_tokens() -> None:
+    service, user_repository, password_service, jwt_service = _build_service()
+    request = RefreshTokenRequest(refresh_token="refresh-token")
+    user_id = uuid4()
+    existing_user = SimpleNamespace(id=user_id, role=UserRole.USER.value)
+
+    jwt_service.decode_token.return_value = {
+        "sub": str(user_id),
+        "type": TokenType.REFRESH.value,
+    }
+    user_repository.get_by_id.return_value = existing_user
+    jwt_service.create_access_token.return_value = "new-access"
+    jwt_service.create_refresh_token.return_value = "new-refresh"
+
+    response = asyncio.run(service.refresh(request))
+
+    assert response.access_token == "new-access"
+    assert response.refresh_token == "new-refresh"
+    jwt_service.decode_token.assert_called_once_with("refresh-token")
+    user_repository.get_by_id.assert_awaited_once_with(user_id)
+    jwt_service.create_access_token.assert_called_once_with(
+        subject=str(user_id),
+        role=UserRole.USER.value,
+    )
+    jwt_service.create_refresh_token.assert_called_once_with(subject=str(user_id))
+    password_service.hash_password.assert_not_called()
+    password_service.verify_password.assert_not_called()
+
+
+def test_refresh_invalid_token_type_raises_invalid_token() -> None:
+    service, user_repository, _password_service, jwt_service = _build_service()
+    request = RefreshTokenRequest(refresh_token="refresh-token")
+
+    jwt_service.decode_token.return_value = {
+        "sub": str(uuid4()),
+        "type": TokenType.ACCESS.value,
+    }
+
+    with pytest.raises(InvalidTokenException):
+        asyncio.run(service.refresh(request))
+
+    user_repository.get_by_id.assert_not_called()
+
+
+def test_refresh_unknown_user_raises_invalid_credentials() -> None:
+    service, user_repository, _password_service, jwt_service = _build_service()
+    user_id = uuid4()
+    request = RefreshTokenRequest(refresh_token="refresh-token")
+
+    jwt_service.decode_token.return_value = {
+        "sub": str(user_id),
+        "type": TokenType.REFRESH.value,
+    }
+    user_repository.get_by_id.return_value = None
+
+    with pytest.raises(InvalidCredentialsException):
+        asyncio.run(service.refresh(request))
+
+    user_repository.get_by_id.assert_awaited_once_with(user_id)
+
+
+def test_refresh_invalid_subject_raises_invalid_token() -> None:
+    service, user_repository, _password_service, jwt_service = _build_service()
+    request = RefreshTokenRequest(refresh_token="refresh-token")
+
+    jwt_service.decode_token.return_value = {
+        "sub": "not-a-uuid",
+        "type": TokenType.REFRESH.value,
+    }
+
+    with pytest.raises(InvalidTokenException):
+        asyncio.run(service.refresh(request))
+
+    user_repository.get_by_id.assert_not_called()

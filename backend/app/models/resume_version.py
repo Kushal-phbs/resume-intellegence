@@ -13,6 +13,7 @@ from app.db.base import Base, TimestampMixin, UUIDMixin
 
 if TYPE_CHECKING:
     from app.models.resume import Resume
+    from app.models.resume_analysis import ResumeAnalysis
 
 
 class ResumeVersion(UUIDMixin, TimestampMixin, Base):
@@ -34,3 +35,6 @@ class ResumeVersion(UUIDMixin, TimestampMixin, Base):
     file_path: Mapped[str | None] = mapped_column(String(1024))
 
     resume: Mapped["Resume"] = relationship(back_populates="versions")
+    analyses: Mapped[list["ResumeAnalysis"]] = relationship(
+        back_populates="resume_version"
+    )
