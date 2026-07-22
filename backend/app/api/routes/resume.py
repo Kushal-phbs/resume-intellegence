@@ -8,8 +8,10 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, File, Form, Response, UploadFile, status
 from fastapi.responses import FileResponse
 
+from app.config import settings
 from app.core.exceptions import ValidationException
 from app.dependencies.auth import get_current_user
+from app.dependencies.rate_limit import limit
 from app.dependencies.resume import get_resume_service
 from app.models.user import User
 from app.schemas.resume import ResumeListResponse, ResumeResponse, ResumeUploadResponse
@@ -26,6 +28,12 @@ router = APIRouter(prefix="/resumes", tags=["Resumes"])
 async def upload_resume_endpoint(
     title: str = Form(min_length=1, max_length=255),
     file: UploadFile = File(...),
+    _: None = Depends(
+        limit(
+            bucket="resume_upload",
+            requests=settings.rate_limit_resume_upload_requests,
+        )
+    ),
     current_user: User = Depends(get_current_user),
     resume_service: ResumeService = Depends(get_resume_service),
 ) -> ResumeUploadResponse:

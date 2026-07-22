@@ -59,7 +59,9 @@ def test_request_id_header_on_validation_error() -> None:
 
     assert response.status_code == 422
     assert response.headers["X-Request-ID"]
-    assert response.json()["detail"] == "Request validation error"
+    payload = response.json()
+    assert payload["detail"] == "Request validation error"
+    assert payload["error"]["code"] == "RequestValidationError"
 
 
 def test_request_id_header_on_unhandled_exception() -> None:
@@ -76,4 +78,6 @@ def test_request_id_header_on_unhandled_exception() -> None:
 
     assert response.status_code == 500
     assert response.headers["X-Request-ID"]
-    assert response.json()["detail"] == "Internal server error"
+    payload = response.json()
+    assert payload["detail"] == "Internal server error"
+    assert payload["error"]["code"] == "InternalServerError"

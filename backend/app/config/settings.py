@@ -36,11 +36,54 @@ class Settings(BaseSettings):
     db_echo: bool = False
     db_pool_size: int = 5
     db_max_overflow: int = 10
+    db_pool_timeout_seconds: int = 30
+    db_pool_recycle_seconds: int = 1800
 
     secret_key: str = ""
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
+    jwt_issuer: str | None = None
+    jwt_audience: str | None = None
+
+    redis_enabled: bool = True
+    redis_url: str = "redis://localhost:6379/0"
+
+    cache_default_ttl_seconds: int = 300
+    cache_dashboard_summary_ttl_seconds: int = 120
+    cache_dashboard_statistics_ttl_seconds: int = 120
+    cache_dashboard_trends_ttl_seconds: int = 180
+    cache_dashboard_performance_ttl_seconds: int = 120
+    cache_resume_analysis_ttl_seconds: int = 300
+    cache_job_analysis_ttl_seconds: int = 300
+
+    rate_limit_enabled: bool = True
+    rate_limit_window_seconds: int = 60
+    rate_limit_login_requests: int = 10
+    rate_limit_register_requests: int = 5
+    rate_limit_resume_upload_requests: int = 20
+    rate_limit_resume_analysis_requests: int = 20
+    rate_limit_job_analysis_requests: int = 20
+    rate_limit_resume_tailoring_requests: int = 20
+    rate_limit_export_requests: int = 40
+    rate_limit_dashboard_refresh_requests: int = 10
+
+    cors_allow_origins_csv: str = Field(
+        default="http://localhost:3000,http://localhost:5173",
+        validation_alias="CORS_ALLOW_ORIGINS",
+    )
+    cors_allow_methods_csv: str = Field(
+        default="GET,POST,PUT,PATCH,DELETE,OPTIONS",
+        validation_alias="CORS_ALLOW_METHODS",
+    )
+    cors_allow_headers_csv: str = Field(
+        default="Authorization,Content-Type,X-Request-ID",
+        validation_alias="CORS_ALLOW_HEADERS",
+    )
+    trusted_hosts_csv: str = Field(
+        default="localhost,127.0.0.1,testserver",
+        validation_alias="TRUSTED_HOSTS",
+    )
 
     resume_upload_dir: str = "uploads/resumes"
     resume_max_upload_size_mb: int = 5
@@ -94,6 +137,18 @@ class Settings(BaseSettings):
                 "DATABASE_URL must use the 'postgresql+asyncpg://' driver scheme."
             )
 
+        if self.db_pool_size <= 0:
+            raise ValueError("DB_POOL_SIZE must be a positive integer.")
+
+        if self.db_max_overflow < 0:
+            raise ValueError("DB_MAX_OVERFLOW must be zero or greater.")
+
+        if self.db_pool_timeout_seconds <= 0:
+            raise ValueError("DB_POOL_TIMEOUT_SECONDS must be a positive integer.")
+
+        if self.db_pool_recycle_seconds <= 0:
+            raise ValueError("DB_POOL_RECYCLE_SECONDS must be a positive integer.")
+
         return self
 
     @model_validator(mode="after")
@@ -119,6 +174,57 @@ class Settings(BaseSettings):
         if self.refresh_token_expire_days <= 0:
             raise ValueError("REFRESH_TOKEN_EXPIRE_DAYS must be a positive integer.")
 
+        if self.jwt_issuer is not None and not self.jwt_issuer.strip():
+            raise ValueError("JWT_ISSUER cannot be blank when configured.")
+
+        if self.jwt_audience is not None and not self.jwt_audience.strip():
+            raise ValueError("JWT_AUDIENCE cannot be blank when configured.")
+
+        return self
+
+    @model_validator(mode="after")
+    def _validate_redis_cache_settings(self) -> "Settings":
+        if self.redis_enabled and not self.redis_url:
+            raise ValueError("REDIS_URL must be configured when REDIS_ENABLED=true.")
+
+        if self.redis_url and not (
+            self.redis_url.startswith("redis://")
+            or self.redis_url.startswith("rediss://")
+        ):
+            raise ValueError("REDIS_URL must start with redis:// or rediss://")
+
+        ttl_values = [
+            self.cache_default_ttl_seconds,
+            self.cache_dashboard_summary_ttl_seconds,
+            self.cache_dashboard_statistics_ttl_seconds,
+            self.cache_dashboard_trends_ttl_seconds,
+            self.cache_dashboard_performance_ttl_seconds,
+            self.cache_resume_analysis_ttl_seconds,
+            self.cache_job_analysis_ttl_seconds,
+        ]
+        if any(value <= 0 for value in ttl_values):
+            raise ValueError("All cache TTL values must be positive integers.")
+
+        return self
+
+    @model_validator(mode="after")
+    def _validate_rate_limit_settings(self) -> "Settings":
+        if self.rate_limit_window_seconds <= 0:
+            raise ValueError("RATE_LIMIT_WINDOW_SECONDS must be a positive integer.")
+
+        limits = [
+            self.rate_limit_login_requests,
+            self.rate_limit_register_requests,
+            self.rate_limit_resume_upload_requests,
+            self.rate_limit_resume_analysis_requests,
+            self.rate_limit_job_analysis_requests,
+            self.rate_limit_resume_tailoring_requests,
+            self.rate_limit_export_requests,
+            self.rate_limit_dashboard_refresh_requests,
+        ]
+        if any(value <= 0 for value in limits):
+            raise ValueError("All rate-limit values must be positive integers.")
+
         return self
 
     @model_validator(mode="after")
@@ -134,6 +240,18 @@ class Settings(BaseSettings):
 
         if not self.resume_allowed_mime_types:
             raise ValueError("RESUME_ALLOWED_MIME_TYPES must not be empty.")
+
+        if not self.cors_allow_origins:
+            raise ValueError("CORS_ALLOW_ORIGINS must not be empty.")
+
+        if not self.cors_allow_methods:
+            raise ValueError("CORS_ALLOW_METHODS must not be empty.")
+
+        if not self.cors_allow_headers:
+            raise ValueError("CORS_ALLOW_HEADERS must not be empty.")
+
+        if not self.trusted_hosts:
+            raise ValueError("TRUSTED_HOSTS must not be empty.")
 
         return self
 
@@ -153,6 +271,40 @@ class Settings(BaseSettings):
             item.strip()
             for item in self.resume_allowed_mime_types_csv.split(",")
             if item.strip()
+        ]
+
+    @property
+    def cors_allow_origins(self) -> list[str]:
+        """Allowed CORS origins parsed from a comma-separated list."""
+        return [
+            item.strip()
+            for item in self.cors_allow_origins_csv.split(",")
+            if item.strip()
+        ]
+
+    @property
+    def cors_allow_methods(self) -> list[str]:
+        """Allowed HTTP methods for CORS."""
+        return [
+            item.strip().upper()
+            for item in self.cors_allow_methods_csv.split(",")
+            if item.strip()
+        ]
+
+    @property
+    def cors_allow_headers(self) -> list[str]:
+        """Allowed request headers for CORS."""
+        return [
+            item.strip()
+            for item in self.cors_allow_headers_csv.split(",")
+            if item.strip()
+        ]
+
+    @property
+    def trusted_hosts(self) -> list[str]:
+        """Trusted host names parsed from a comma-separated list."""
+        return [
+            item.strip() for item in self.trusted_hosts_csv.split(",") if item.strip()
         ]
 
     @property

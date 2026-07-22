@@ -6,8 +6,10 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, status
 
+from app.config import settings
 from app.dependencies.analysis import get_analysis_service
 from app.dependencies.auth import get_current_user
+from app.dependencies.rate_limit import limit
 from app.models.user import User
 from app.schemas.analysis import (
     KeywordResponse,
@@ -35,6 +37,12 @@ _ANALYSIS_ERROR_RESPONSES = {
 )
 async def analyze_resume_endpoint(
     resume_id: UUID,
+    _: None = Depends(
+        limit(
+            bucket="resume_analysis",
+            requests=settings.rate_limit_resume_analysis_requests,
+        )
+    ),
     current_user: User = Depends(get_current_user),
     analysis_service: ResumeAnalysisService = Depends(get_analysis_service),
 ) -> ResumeAnalysisResponse:

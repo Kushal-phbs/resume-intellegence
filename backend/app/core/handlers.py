@@ -10,6 +10,7 @@ Expose register_exception_handlers(app) to attach handlers to a FastAPI app.
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import FastAPI, Request, status
@@ -27,10 +28,39 @@ def _attach_request_id_header(response: JSONResponse, request: Request) -> JSONR
     return response
 
 
+def _base_error_content(
+    *,
+    request: Request,
+    detail: str,
+    code: str,
+    extras: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "detail": detail,
+        "error": {
+            "code": code,
+            "timestamp": datetime.now(UTC).isoformat(),
+            "path": str(request.url.path),
+            "method": request.method,
+            "request_id": getattr(request.state, "request_id", None),
+        },
+    }
+    if extras:
+        payload["error"].update(extras)
+    return payload
+
+
 def _app_exception_handler(request: Request, exc: AppException) -> JSONResponse:
     """Handle AppException and return a JSON response using its status_code."""
-    content: dict[str, Any] = {"detail": exc.message}
+    content = _base_error_content(
+        request=request,
+        detail=exc.message,
+        code=exc.__class__.__name__,
+    )
     response = JSONResponse(status_code=exc.status_code, content=content)
+    retry_after = getattr(exc, "retry_after_seconds", None)
+    if isinstance(retry_after, int):
+        response.headers["Retry-After"] = str(max(retry_after, 1))
     return _attach_request_id_header(response, request)
 
 
@@ -38,11 +68,12 @@ def _validation_exception_handler(
     request: Request, exc: RequestValidationError
 ) -> JSONResponse:
     """Handle request validation errors and return structured JSON with details."""
-    # Pydantic/fastapi provide structured errors via exc.errors()
-    content: dict[str, Any] = {
-        "detail": "Request validation error",
-        "errors": exc.errors(),
-    }
+    content = _base_error_content(
+        request=request,
+        detail="Request validation error",
+        code="RequestValidationError",
+        extras={"errors": exc.errors()},
+    )
     response = JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, content=content
     )
@@ -65,7 +96,11 @@ def _generic_exception_handler(request: Request, exc: Exception) -> JSONResponse
     except Exception:  # pragma: no cover - defensive fallback
         logging.exception("Unhandled exception while processing request")
 
-    content: dict[str, Any] = {"detail": "Internal server error"}
+    content = _base_error_content(
+        request=request,
+        detail="Internal server error",
+        code="InternalServerError",
+    )
     response = JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content=content
     )

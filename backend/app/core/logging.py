@@ -9,9 +9,24 @@ from __future__ import annotations
 import logging
 from contextvars import ContextVar
 
-__all__ = ["setup_logging", "logger"]
+__all__ = [
+    "setup_logging",
+    "logger",
+    "request_id_ctx",
+    "user_id_ctx",
+    "endpoint_ctx",
+    "method_ctx",
+    "status_code_ctx",
+    "execution_time_ms_ctx",
+    "ai_processing_duration_ms_ctx",
+]
 
-LOG_FORMAT = "%(asctime)s | %(levelname)s | %(name)s | %(request_id)s | %(message)s"
+LOG_FORMAT = (
+    "%(asctime)s | %(levelname)s | %(name)s | request_id=%(request_id)s "
+    "user_id=%(user_id)s method=%(method)s endpoint=%(endpoint)s "
+    "status=%(status_code)s duration_ms=%(execution_time_ms)s "
+    "ai_duration_ms=%(ai_processing_duration_ms)s | %(message)s"
+)
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 DEFAULT_LEVEL = logging.INFO
 
@@ -19,13 +34,28 @@ DEFAULT_LEVEL = logging.INFO
 logger = logging.getLogger(__name__)
 
 request_id_ctx: ContextVar[str] = ContextVar("request_id", default="-")
+user_id_ctx: ContextVar[str] = ContextVar("user_id", default="-")
+endpoint_ctx: ContextVar[str] = ContextVar("endpoint", default="-")
+method_ctx: ContextVar[str] = ContextVar("method", default="-")
+status_code_ctx: ContextVar[str] = ContextVar("status_code", default="-")
+execution_time_ms_ctx: ContextVar[str] = ContextVar("execution_time_ms", default="-")
+ai_processing_duration_ms_ctx: ContextVar[str] = ContextVar(
+    "ai_processing_duration_ms",
+    default="0.0",
+)
 
 
 class RequestIdFilter(logging.Filter):
-    """Attach the current request ID to log records."""
+    """Attach current request context values to log records."""
 
     def filter(self, record: logging.LogRecord) -> bool:
         record.request_id = request_id_ctx.get("-")
+        record.user_id = user_id_ctx.get("-")
+        record.endpoint = endpoint_ctx.get("-")
+        record.method = method_ctx.get("-")
+        record.status_code = status_code_ctx.get("-")
+        record.execution_time_ms = execution_time_ms_ctx.get("-")
+        record.ai_processing_duration_ms = ai_processing_duration_ms_ctx.get("0.0")
         return True
 
 

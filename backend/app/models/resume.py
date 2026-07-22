@@ -12,8 +12,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base, TimestampMixin, UUIDMixin
 
 if TYPE_CHECKING:
+    from app.models.job_analysis import JobAnalysis
     from app.models.resume_analysis import ResumeAnalysis
+    from app.models.resume_tailoring_version import ResumeTailoringVersion
     from app.models.resume_version import ResumeVersion
+    from app.models.tailoring_session import TailoringSession
     from app.models.user import User
 
 
@@ -39,6 +42,21 @@ class Resume(UUIDMixin, TimestampMixin, Base):
         order_by="ResumeVersion.version_number",
     )
     analyses: Mapped[list["ResumeAnalysis"]] = relationship(
+        back_populates="resume",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    job_analyses: Mapped[list["JobAnalysis"]] = relationship(
+        back_populates="resume",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    tailoring_sessions: Mapped[list["TailoringSession"]] = relationship(
+        back_populates="resume",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    tailoring_resume_versions: Mapped[list["ResumeTailoringVersion"]] = relationship(
         back_populates="resume",
         cascade="all, delete-orphan",
         passive_deletes=True,

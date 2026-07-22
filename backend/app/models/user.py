@@ -11,9 +11,12 @@ from app.db.base import Base, TimestampMixin, UUIDMixin
 from app.enums import UserRole
 
 if TYPE_CHECKING:
+    from app.models.activity_log import ActivityLog
+    from app.models.dashboard_snapshot import DashboardSnapshot
     from app.models.job_description import JobDescription
     from app.models.profile import Profile
     from app.models.resume import Resume
+    from app.models.user_analytics import UserAnalytics
 
 
 class User(UUIDMixin, TimestampMixin, Base):
@@ -43,6 +46,22 @@ class User(UUIDMixin, TimestampMixin, Base):
         passive_deletes=True,
     )
     job_descriptions: Mapped[list["JobDescription"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    dashboard_snapshots: Mapped[list["DashboardSnapshot"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    user_analytics: Mapped["UserAnalytics | None"] = relationship(
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    activity_logs: Mapped[list["ActivityLog"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
         passive_deletes=True,

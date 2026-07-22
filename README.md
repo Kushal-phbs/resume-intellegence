@@ -234,6 +234,65 @@ DELETE /analysis/550e8400-e29b-41d4-a716-446655440001
 Authorization: Bearer <access_token>
 ```
 
+## Job Intelligence API
+
+The Job Intelligence API compares one resume against one job description and
+stores a structured analysis. Routes are thin wrappers over service methods,
+and every endpoint requires Bearer authentication.
+
+### Workflow
+
+```mermaid
+flowchart TD
+  Resume[Resume]
+  Job[Job Description]
+  Analyze[Job Match Analysis]
+  Store[Persisted Analysis]
+  Read[Read Analysis Views]
+
+  Resume --> Analyze
+  Job --> Analyze
+  Analyze --> Store --> Read
+```
+
+### Endpoints
+
+- `POST /job-analysis/{resume_id}/{job_id}` - Run analysis and persist results.
+- `GET /job-analysis/{analysis_id}` - Return full analysis payload.
+- `GET /job-analysis/{analysis_id}/summary` - Return score and insight fields.
+- `GET /job-analysis/{analysis_id}/matched-skills` - Return matched skills.
+- `GET /job-analysis/{analysis_id}/missing-skills` - Return missing skills.
+- `GET /job-analysis/{analysis_id}/keywords` - Return matched keywords.
+- `GET /job-analysis/history` - Return the current user's analysis history.
+- `DELETE /job-analysis/{analysis_id}` - Delete one owned analysis.
+
+### Example Calls
+
+```http
+POST /job-analysis/550e8400-e29b-41d4-a716-446655440000/660e8400-e29b-41d4-a716-446655440000
+Authorization: Bearer <access_token>
+```
+
+```http
+GET /job-analysis/770e8400-e29b-41d4-a716-446655440000
+Authorization: Bearer <access_token>
+```
+
+```http
+GET /job-analysis/770e8400-e29b-41d4-a716-446655440000/summary
+Authorization: Bearer <access_token>
+```
+
+```http
+GET /job-analysis/history
+Authorization: Bearer <access_token>
+```
+
+```http
+DELETE /job-analysis/770e8400-e29b-41d4-a716-446655440000
+Authorization: Bearer <access_token>
+```
+
 ## Database
 
 Start a local PostgreSQL instance with Docker Compose:

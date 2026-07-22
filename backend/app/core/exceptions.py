@@ -88,6 +88,19 @@ class AuthorizationException(AppException):
         super().__init__(message=message, status_code=status_code)
 
 
+class RateLimitException(AppException):
+    """Raised when an endpoint request exceeds configured rate limits."""
+
+    def __init__(
+        self,
+        message: str = "Rate limit exceeded",
+        status_code: int = 429,
+        retry_after_seconds: int = 60,
+    ) -> None:
+        super().__init__(message=message, status_code=status_code)
+        self.retry_after_seconds = max(retry_after_seconds, 1)
+
+
 class ExternalServiceException(AppException):
     """Raised for failures when calling external services (upstream errors)."""
 

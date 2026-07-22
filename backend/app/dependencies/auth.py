@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import Depends, Security
+from fastapi import Depends, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -49,6 +49,7 @@ def get_auth_service(
 
 
 async def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Security(_bearer_scheme),
     user_repository: UserRepository = Depends(get_user_repository),
     jwt_service: JWTService = Depends(get_jwt_service),
@@ -80,6 +81,7 @@ async def get_current_user(
     if user is None:
         raise AuthenticationException("Authenticated user no longer exists")
 
+    request.state.user_id = str(user.id)
     return user
 
 

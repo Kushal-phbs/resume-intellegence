@@ -12,6 +12,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base, TimestampMixin, UUIDMixin
 
 if TYPE_CHECKING:
+    from app.models.job_analysis import JobAnalysis
+    from app.models.tailoring_session import TailoringSession
     from app.models.user import User
 
 
@@ -32,3 +34,13 @@ class JobDescription(UUIDMixin, TimestampMixin, Base):
     description: Mapped[str] = mapped_column(Text, nullable=False)
 
     user: Mapped["User"] = relationship(back_populates="job_descriptions")
+    job_analyses: Mapped[list["JobAnalysis"]] = relationship(
+        back_populates="job_description",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    tailoring_sessions: Mapped[list["TailoringSession"]] = relationship(
+        back_populates="job_description",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )

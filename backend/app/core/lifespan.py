@@ -15,4 +15,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
+        from app.dependencies.cache import (
+            get_cache_service,
+            get_rate_limiter_service,
+        )
+
+        await get_cache_service().close()
+        await get_rate_limiter_service().close()
         logger.info("Application shutting down")

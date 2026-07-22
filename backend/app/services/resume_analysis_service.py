@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
+from app.config import settings
 from app.core.exceptions import (
     ExternalServiceException,
     ResumeNotFoundException,
@@ -30,6 +31,7 @@ from app.schemas.analysis import (
     ResumeAnalysisSummaryResponse,
     SkillResponse,
 )
+from app.services.cache_service import CacheService
 from app.services.chat_service import ChatService
 from app.storage.base import StorageProvider
 
@@ -49,6 +51,7 @@ class ResumeAnalysisService:
         chat_service: ChatService,
         analysis_parser: AnalysisParser | None = None,
         extractor_factory: TextExtractorFactory | None = None,
+        cache_service: CacheService | None = None,
     ) -> None:
         self._analysis_repository = analysis_repository
         self._resume_repository = resume_repository
@@ -56,6 +59,7 @@ class ResumeAnalysisService:
         self._chat_service = chat_service
         self._analysis_parser = analysis_parser or AnalysisParser()
         self._extractor_factory = extractor_factory or TextExtractorFactory()
+        self._cache = cache_service
 
     async def analyze_resume(
         self, user_id: UUID, resume_id: UUID
@@ -122,21 +126,54 @@ class ResumeAnalysisService:
         if updated is None:
             raise ExternalServiceException("Analysis persistence failed")
 
+        await self._invalidate_resume_cache(user_id=user_id, resume_id=resume_id)
         return self._to_response(updated)
 
     async def get_latest_analysis(
         self, user_id: UUID, resume_id: UUID
     ) -> ResumeAnalysisResponse:
         """Return the newest completed analysis stored for a resume."""
+        if self._cache is not None:
+            cached = await self._cache.get(
+                namespace=self._cache_namespace(user_id, resume_id),
+                key="latest",
+            )
+            if cached is not None:
+                return ResumeAnalysisResponse.model_validate(cached)
+
         analysis = await self._get_latest_completed_analysis(user_id, resume_id)
-        return self._to_response(analysis)
+        response = self._to_response(analysis)
+        if self._cache is not None:
+            await self._cache.set(
+                namespace=self._cache_namespace(user_id, resume_id),
+                key="latest",
+                value=response.model_dump(mode="json"),
+                ttl_seconds=settings.cache_resume_analysis_ttl_seconds,
+            )
+        return response
 
     async def get_latest_summary(
         self, user_id: UUID, resume_id: UUID
     ) -> ResumeAnalysisSummaryResponse:
         """Return the latest completed analysis summary for a resume."""
+        if self._cache is not None:
+            cached = await self._cache.get(
+                namespace=self._cache_namespace(user_id, resume_id),
+                key="summary",
+            )
+            if cached is not None:
+                return ResumeAnalysisSummaryResponse.model_validate(cached)
+
         analysis = await self._get_latest_completed_analysis(user_id, resume_id)
-        return self._to_summary(analysis)
+        response = self._to_summary(analysis)
+        if self._cache is not None:
+            await self._cache.set(
+                namespace=self._cache_namespace(user_id, resume_id),
+                key="summary",
+                value=response.model_dump(mode="json"),
+                ttl_seconds=settings.cache_resume_analysis_ttl_seconds,
+            )
+        return response
 
     async def get_latest_skills(
         self, user_id: UUID, resume_id: UUID
@@ -170,6 +207,18 @@ class ResumeAnalysisService:
         deleted = await self._analysis_repository.delete(analysis_id)
         if not deleted:
             raise ResumeNotFoundException("Analysis not found")
+        await self._invalidate_resume_cache(
+            user_id=user_id,
+            resume_id=analysis.resume_id,
+        )
+
+    async def _invalidate_resume_cache(self, *, user_id: UUID, resume_id: UUID) -> None:
+        if self._cache is None:
+            return
+        await self._cache.invalidate(self._cache_namespace(user_id, resume_id))
+
+    def _cache_namespace(self, user_id: UUID, resume_id: UUID) -> str:
+        return f"resume_analysis:{user_id}:{resume_id}"
 
     async def _get_owned_resume(self, *, user_id: UUID, resume_id: UUID) -> Resume:
         resume = await self._resume_repository.get(resume_id)

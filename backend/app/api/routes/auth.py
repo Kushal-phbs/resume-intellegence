@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, status
 
+from app.config import settings
 from app.dependencies.auth import get_auth_service
+from app.dependencies.rate_limit import limit
 from app.schemas.auth import (
     LoginRequest,
     RefreshTokenRequest,
@@ -21,6 +23,12 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 )
 async def register_endpoint(
     request: RegisterRequest,
+    _: None = Depends(
+        limit(
+            bucket="auth_register",
+            requests=settings.rate_limit_register_requests,
+        )
+    ),
     auth_service: AuthService = Depends(get_auth_service),
 ) -> TokenResponse:
     """Register a user and return access/refresh JWT tokens."""
@@ -30,6 +38,12 @@ async def register_endpoint(
 @router.post("/login", response_model=TokenResponse)
 async def login_endpoint(
     request: LoginRequest,
+    _: None = Depends(
+        limit(
+            bucket="auth_login",
+            requests=settings.rate_limit_login_requests,
+        )
+    ),
     auth_service: AuthService = Depends(get_auth_service),
 ) -> TokenResponse:
     """Authenticate a user and return access/refresh JWT tokens."""
