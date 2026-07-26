@@ -293,7 +293,156 @@ DELETE /job-analysis/770e8400-e29b-41d4-a716-446655440000
 Authorization: Bearer <access_token>
 ```
 
-## Database
+## Docker Deployment
+
+The project includes a production-ready Docker setup with three services:
+backend (FastAPI), PostgreSQL, and Redis.
+
+### Prerequisites
+
+- Docker Engine 24+
+- Docker Compose v2+
+
+### Required Environment Variables
+
+Create a `.env` file in the project root (or export the variables) with at
+least the following required values:
+
+```bash
+# Required — must be set before starting the stack
+GROQ_API_KEY=gsk_your_groq_api_key_here
+SECRET_KEY=your_256_bit_secret_here  # Generate: python -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
+Optional variables have safe development defaults defined in
+`docker-compose.yml`.
+
+### Building the Backend Image
+
+```bash
+docker compose build
+```
+
+This uses the multi-stage `backend/Dockerfile`:
+- **Stage 1 (builder)**: Installs Python dependencies into a temporary directory.
+- **Stage 2 (runtime)**: Copies only the compiled dependencies and application
+  code into a minimal `python:3.12-slim` image. Runs as a non-root user.
+
+### Starting the Complete Stack
+
+```bash
+docker compose up -d
+```
+
+This starts all three services in dependency order:
+1. PostgreSQL (waits for healthy status)
+2. Redis (waits for healthy status)
+3. Backend (starts after both dependencies are healthy)
+
+### Running Database Migrations
+
+After the stack is running, apply the latest schema migrations:
+
+```bash
+docker compose exec backend alembic upgrade head
+```
+
+Generate a new migration after changing models:
+
+```bash
+docker compose exec backend alembic revision --autogenerate -m "describe the change"
+```
+
+### Migration Strategy for Production
+
+Migrations are **not** automatically executed on application startup to avoid
+race conditions when multiple backend replicas start simultaneously. Instead:
+
+1. Run migrations as a one-off step during deployment (before routing traffic
+   to new replicas).
+2. Use a dedicated migration job/container in orchestrated environments
+   (Kubernetes Job, Nomad batch job, etc.).
+3. For zero-downtime deployments, run `alembic upgrade head` while the old
+   replicas are still serving traffic, then roll out the new replicas.
+
+### Viewing Logs
+
+```bash
+# All services
+docker compose logs -f
+
+# Specific service
+docker compose logs -f backend
+docker compose logs -f postgres
+docker compose logs -f redis
+```
+
+### Checking Container Health
+
+```bash
+# List all containers and their health status
+docker compose ps
+
+# Query the application health endpoints
+curl http://localhost:8000/health
+curl http://localhost:8000/live
+curl http://localhost:8000/ready
+```
+
+### Stopping the Stack
+
+```bash
+# Stop without removing volumes
+docker compose down
+
+# Stop and remove all volumes (deletes database data)
+docker compose down -v
+```
+
+### PostgreSQL Configuration
+
+| Variable | Default | Description |
+|---|---|---|
+| `POSTGRES_USER` | `postgres` | Database superuser name |
+| `POSTGRES_PASSWORD` | `postgres` | Database superuser password |
+| `POSTGRES_DB` | `resume_intelligence` | Database name |
+| `POSTGRES_PORT` | `5432` | Host-mapped port |
+
+### Redis Configuration
+
+| Variable | Default | Description |
+|---|---|---|
+| `REDIS_PORT` | `6379` | Host-mapped port |
+
+Redis data is persisted to a named Docker volume (`redis_data`). The
+application gracefully falls back to in-memory caching if Redis is
+unavailable.
+
+### Backend Configuration
+
+| Variable | Default | Required | Description |
+|---|---|---|---|
+| `GROQ_API_KEY` | — | Yes | Groq API key |
+| `SECRET_KEY` | — | Yes | JWT signing secret (min 32 chars) |
+| `ENVIRONMENT` | `production` | No | Runtime environment |
+| `DEBUG` | `false` | No | Debug mode (set to `true` only in dev) |
+| `UVICORN_WORKERS` | `4` | No | Number of Uvicorn worker processes |
+| `BACKEND_PORT` | `8000` | No | Host-mapped port |
+
+All other settings from `.env.example` are available as environment variables
+with safe defaults.
+
+### Production Secret Requirements
+
+- `SECRET_KEY`: Minimum 32 characters. Generate with:
+  ```bash
+  python -c "import secrets; print(secrets.token_urlsafe(48))"
+  ```
+- `GROQ_API_KEY`: Valid Groq API key with access to the configured model.
+- Never commit secrets to version control.
+- Use Docker secrets, Kubernetes Secrets, or a vault solution in production.
+
+## Database (Local Development)
 
 Start a local PostgreSQL instance with Docker Compose:
 
@@ -360,6 +509,56 @@ Potential next steps include:
 - Add vector search / RAG support
 - Add metrics, tracing, and observability integrations
 - Add Docker and cloud deployment manifests
+
+## CI/CD
+
+The project includes a GitHub Actions workflow (`.github/workflows/ci.yml`) that
+runs on every push and pull request to the `main` branch. The workflow validates:
+
+- Python 3.12 setup with pip caching
+- Dependency installation
+- Ruff linting
+- Full pytest suite
+- Alembic migration state (`alembic check`)
+- Docker image build
+
+## Prometheus Metrics
+
+A `/metrics` endpoint exposes Prometheus-compatible application metrics:
+
+| Metric | Type | Labels |
+|---|---|---|
+| `http_requests_total` | Counter | `method`, `endpoint`, `status` |
+| `http_request_duration_seconds` | Histogram | `method`, `endpoint` |
+| `http_active_requests` | Gauge | — |
+| `ai_requests_total` | Counter | `provider` |
+| `ai_request_duration_seconds` | Histogram | `provider` |
+| `db_queries_total` | Counter | `operation` |
+| `db_query_duration_seconds` | Histogram | `operation` |
+| `cache_hits_total` | Counter | `namespace` |
+| `cache_misses_total` | Counter | `namespace` |
+| `rate_limit_violations_total` | Counter | `bucket` |
+
+No user-identifying labels (user IDs, emails, tokens) are exposed.
+
+```bash
+curl http://localhost:8000/metrics
+```
+
+## Sentry Error Monitoring
+
+Sentry integration is optional and disabled by default. To enable it, set the
+following environment variables:
+
+```bash
+SENTRY_DSN=https://your-dsn@sentry.io/project-id
+SENTRY_TRACES_SAMPLE_RATE=0.1
+SENTRY_SEND_DEFAULT_PII=false
+SENTRY_ENVIRONMENT=production
+```
+
+When `SENTRY_DSN` is empty (the default), the application runs normally without
+Sentry. No DSN is required for local development.
 
 ## Troubleshooting
 

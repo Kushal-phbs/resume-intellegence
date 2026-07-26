@@ -16,6 +16,17 @@ from app.core.middleware import (
 # Configure logging before creating the application so any startup logs are formatted
 setup_logging(level="DEBUG" if settings.debug else "INFO")
 
+# Optional Sentry integration — disabled by default (empty DSN)
+if settings.sentry_dsn:
+    import sentry_sdk
+
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        environment=settings.sentry_environment or settings.environment,
+        traces_sample_rate=settings.sentry_traces_sample_rate,
+        send_default_pii=settings.sentry_send_default_pii,
+    )
+
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,

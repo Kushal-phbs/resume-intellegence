@@ -18,6 +18,7 @@ from app.core.logging import (
     status_code_ctx,
     user_id_ctx,
 )
+from app.core.metrics import active_requests, http_request_count, http_request_latency
 
 
 class RequestIDMiddleware(BaseHTTPMiddleware):
@@ -58,7 +59,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 
 class ObservabilityMiddleware(BaseHTTPMiddleware):
-    """Capture request timing and emit centralized structured request logs."""
+    """Capture request timing, emit structured logs, and record Prometheus metrics."""
 
     async def dispatch(self, request: Request, call_next) -> Response:
         method_token = method_ctx.set(request.method)
@@ -67,6 +68,7 @@ class ObservabilityMiddleware(BaseHTTPMiddleware):
         duration_token = execution_time_ms_ctx.set("-")
         ai_duration_token = ai_processing_duration_ms_ctx.set("0.0")
 
+        active_requests.inc()
         started = perf_counter()
         try:
             response = await call_next(request)
@@ -75,13 +77,27 @@ class ObservabilityMiddleware(BaseHTTPMiddleware):
             status_code = 500
             raise
         finally:
+            active_requests.dec()
             elapsed_ms = round((perf_counter() - started) * 1000, 2)
+            elapsed_sec = elapsed_ms / 1000.0
             execution_time_ms_ctx.set(str(elapsed_ms))
             status_code_ctx.set(str(status_code))
 
             user_id = getattr(request.state, "user_id", "-")
             user_id_ctx.set(str(user_id))
             logger.info("request.completed")
+
+            # Record Prometheus metrics (skip /metrics to avoid recursion)
+            if request.url.path != "/metrics":
+                http_request_count.labels(
+                    method=request.method,
+                    endpoint=request.url.path,
+                    status=str(status_code),
+                ).inc()
+                http_request_latency.labels(
+                    method=request.method,
+                    endpoint=request.url.path,
+                ).observe(elapsed_sec)
 
             ai_processing_duration_ms_ctx.reset(ai_duration_token)
             execution_time_ms_ctx.reset(duration_token)

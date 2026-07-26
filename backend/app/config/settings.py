@@ -98,6 +98,11 @@ class Settings(BaseSettings):
         validation_alias="RESUME_ALLOWED_MIME_TYPES",
     )
 
+    sentry_dsn: str = ""
+    sentry_traces_sample_rate: float = 0.0
+    sentry_send_default_pii: bool = False
+    sentry_environment: str = ""
+
     model_config = SettingsConfigDict(
         env_file=str(Path(__file__).resolve().parents[2] / ".env"),
         env_file_encoding="utf-8",

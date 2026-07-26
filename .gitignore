@@ -1,13 +1,46 @@
 # Python
 __pycache__/
 *.py[cod]
-.pytest_cache/
-.ruff_cache/
+*.pyo
+*.egg-info/
+dist/
+build/
 
 # Virtual environments
 .venv/
+venv/
+env/
 backend/.venv/
+
+# Testing
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage/
+htmlcov/
+*.cover
+.tox/
 
 # Environment files
 .env
-backend/.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Docker
+backend/Dockerfile
+backend/.dockerignore
+
+# Local uploads
+uploads/
+backend/uploads/
+
+# OS
+Thumbs.db
