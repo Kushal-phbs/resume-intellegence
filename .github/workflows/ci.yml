@@ -91,4 +91,4 @@ jobs:
           TRUSTED_HOSTS: "localhost,127.0.0.1,testserver"
 
       - name: Build Docker image
-        run: docker build -t backend-ci -f backend/Dockerfile backend
+        run: docker build -t backend-ci .
