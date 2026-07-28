@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, Float, ForeignKey, Integer
+from sqlalchemy import CheckConstraint, Float, ForeignKey, Index, Integer
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -20,6 +20,7 @@ class DashboardSnapshot(UUIDMixin, TimestampMixin, Base):
 
     __tablename__ = "dashboard_snapshots"
     __table_args__ = (
+        Index("ix_dashboard_snapshots_user_created_at", "user_id", "created_at"),
         CheckConstraint(
             "total_resumes >= 0",
             name="ck_dashboard_snapshots_total_resumes",

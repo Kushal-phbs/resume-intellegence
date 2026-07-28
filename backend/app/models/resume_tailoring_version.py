@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import JSON, ForeignKey, Integer, Text
+from sqlalchemy import JSON, ForeignKey, Integer, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -20,6 +20,11 @@ class ResumeTailoringVersion(UUIDMixin, TimestampMixin, Base):
     """A tailored resume version generated inside a tailoring session."""
 
     __tablename__ = "resume_tailoring_versions"
+    __table_args__ = (
+        UniqueConstraint(
+            "tailoring_session_id", name="uq_resume_tailoring_versions_session_id"
+        ),
+    )
 
     resume_id: Mapped[uuid.UUID] = mapped_column(
         PGUUID(as_uuid=True),

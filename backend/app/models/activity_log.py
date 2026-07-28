@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import JSON, CheckConstraint, DateTime, ForeignKey, String, func
+from sqlalchemy import JSON, CheckConstraint, DateTime, ForeignKey, Index, String, func
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -21,6 +21,7 @@ class ActivityLog(UUIDMixin, Base):
 
     __tablename__ = "activity_logs"
     __table_args__ = (
+        Index("ix_activity_logs_user_created_at", "user_id", "created_at"),
         CheckConstraint(
             "activity_type IN ("
             "'resume_uploaded',"

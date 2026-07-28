@@ -6,7 +6,14 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, DateTime, Float, ForeignKey, Integer
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -21,6 +28,7 @@ class UserAnalytics(UUIDMixin, TimestampMixin, Base):
 
     __tablename__ = "user_analytics"
     __table_args__ = (
+        UniqueConstraint("user_id", name="uq_user_analytics_user_id"),
         CheckConstraint(
             "total_ai_requests >= 0",
             name="ck_user_analytics_total_ai_requests",

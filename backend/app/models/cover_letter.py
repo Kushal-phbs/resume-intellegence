@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, String, Text
+from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -19,6 +19,9 @@ class CoverLetter(UUIDMixin, TimestampMixin, Base):
     """A generated cover letter tied to one tailoring session."""
 
     __tablename__ = "cover_letters"
+    __table_args__ = (
+        UniqueConstraint("tailoring_session_id", name="uq_cover_letters_session_id"),
+    )
 
     tailoring_session_id: Mapped[uuid.UUID] = mapped_column(
         PGUUID(as_uuid=True),
