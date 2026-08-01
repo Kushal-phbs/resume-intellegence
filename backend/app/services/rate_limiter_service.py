@@ -59,8 +59,12 @@ class RateLimiterService:
 
     async def close(self) -> None:
         if self._redis is not None:
-            await self._redis.aclose()
-            self._redis = None
+            try:
+                await self._redis.aclose()
+            except Exception:
+                pass
+            finally:
+                self._redis = None
         self._redis_backoff_until = None
 
     async def _get_redis(self) -> Redis | None:
@@ -81,13 +85,12 @@ class RateLimiterService:
                     socket_connect_timeout=0.2,
                     socket_timeout=0.2,
                 )
-            except RedisError:
+            except (RedisError, RuntimeError, OSError):
                 logger.warning(
                     "Rate limiter Redis initialization failed",
                     exc_info=True,
                 )
-                self._redis = None
-                self._set_redis_backoff()
+                await self._set_redis_backoff()
         return self._redis
 
     async def _check_redis(
@@ -121,13 +124,19 @@ class RateLimiterService:
                 remaining=max(limit - current_count, 0),
                 retry_after_seconds=retry_after,
             )
-        except RedisError:
+        except (RedisError, RuntimeError, OSError):
             logger.warning("Rate limiter Redis check failed", exc_info=True)
-            self._set_redis_backoff()
+            await self._set_redis_backoff()
             return None
 
-    def _set_redis_backoff(self) -> None:
-        self._redis = None
+    async def _set_redis_backoff(self) -> None:
+        if self._redis is not None:
+            try:
+                await self._redis.aclose()
+            except Exception:
+                pass
+            finally:
+                self._redis = None
         self._redis_backoff_until = datetime.now(UTC) + timedelta(seconds=30)
 
     def _check_fallback(

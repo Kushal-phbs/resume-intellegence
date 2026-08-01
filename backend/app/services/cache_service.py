@@ -73,7 +73,7 @@ class CacheService:
 
         try:
             return bool(await redis.ping())
-        except RedisError:
+        except (RedisError, RuntimeError, OSError):
             logger.warning("Redis ping failed", exc_info=True)
             return False
 
@@ -104,10 +104,9 @@ class CacheService:
                     socket_connect_timeout=0.2,
                     socket_timeout=0.2,
                 )
-            except RedisError:
+            except (RedisError, RuntimeError, OSError):
                 logger.warning("Redis initialization failed", exc_info=True)
-                self._redis = None
-                self._set_redis_backoff()
+                await self._set_redis_backoff()
 
         return self._redis
 
@@ -120,9 +119,9 @@ class CacheService:
             payload = await redis.get(key)
             if payload is not None:
                 return str(payload)
-        except RedisError:
+        except (RedisError, RuntimeError, OSError):
             logger.warning("Redis get failed for key=%s", key, exc_info=True)
-            self._set_redis_backoff()
+            await self._set_redis_backoff()
         return None
 
     async def _redis_set(self, key: str, payload: str, ttl_seconds: int) -> bool:
@@ -133,9 +132,9 @@ class CacheService:
         try:
             await redis.set(key, payload, ex=ttl_seconds)
             return True
-        except RedisError:
+        except (RedisError, RuntimeError, OSError):
             logger.warning("Redis set failed for key=%s", key, exc_info=True)
-            self._set_redis_backoff()
+            await self._set_redis_backoff()
             return False
 
     async def _redis_delete(self, key: str) -> None:
@@ -145,9 +144,9 @@ class CacheService:
 
         try:
             await redis.delete(key)
-        except RedisError:
+        except (RedisError, RuntimeError, OSError):
             logger.warning("Redis delete failed for key=%s", key, exc_info=True)
-            self._set_redis_backoff()
+            await self._set_redis_backoff()
 
     async def _redis_invalidate(self, prefix: str) -> None:
         redis = await self._get_redis()
@@ -158,16 +157,22 @@ class CacheService:
             keys = [key async for key in redis.scan_iter(match=f"{prefix}*")]
             if keys:
                 await redis.delete(*keys)
-        except RedisError:
+        except (RedisError, RuntimeError, OSError):
             logger.warning(
                 "Redis invalidate failed for prefix=%s",
                 prefix,
                 exc_info=True,
             )
-            self._set_redis_backoff()
+            await self._set_redis_backoff()
 
-    def _set_redis_backoff(self) -> None:
-        self._redis = None
+    async def _set_redis_backoff(self) -> None:
+        if self._redis is not None:
+            try:
+                await self._redis.aclose()
+            except Exception:
+                pass
+            finally:
+                self._redis = None
         self._redis_backoff_until = datetime.now(UTC) + timedelta(seconds=30)
 
     def _fallback_get_raw(self, key: str) -> str | None:
