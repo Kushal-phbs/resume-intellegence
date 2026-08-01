@@ -12,6 +12,7 @@ from app.models.user import User
 from app.schemas.dashboard import (
     ActivityResponse,
     AnalyticsResponse,
+    DashboardOverviewResponse,
     DashboardResponse,
     DashboardSummaryResponse,
     DashboardTrendsResponse,
@@ -36,60 +37,19 @@ def _success_rate(successful_requests: int, total_requests: int) -> float:
 
 @router.get(
     "",
-    response_model=DashboardResponse,
+    response_model=DashboardOverviewResponse,
     summary="Get Complete Dashboard",
     description=(
-        "Return complete dashboard information for the authenticated user, "
-        "including summary metrics, AI analytics, and recent activity."
+        "Return complete dashboard information for the authenticated user "
+        "in a single API response."
     ),
     responses=_DASHBOARD_ERROR_RESPONSES,
 )
 async def get_dashboard_endpoint(
-    activity_limit: int = Query(
-        default=20,
-        ge=1,
-        le=100,
-        description="Maximum number of recent activity events to return.",
-    ),
     current_user: User = Depends(get_current_user),
     dashboard_service: DashboardService = Depends(get_dashboard_service),
-) -> DashboardResponse:
-    summary = await dashboard_service.get_dashboard_summary(
-        user_id=current_user.id,
-        activity_limit=activity_limit,
-    )
-    success_rate = _success_rate(
-        summary.analytics.successful_requests,
-        summary.analytics.total_ai_requests,
-    )
-    return DashboardResponse(
-        summary=DashboardSummaryResponse(
-            total_resumes=summary.snapshot.total_resumes,
-            total_resume_analyses=summary.snapshot.total_resume_analyses,
-            total_job_analyses=summary.snapshot.total_job_analyses,
-            total_tailoring_sessions=summary.snapshot.total_tailoring_sessions,
-            generated_cover_letters=summary.snapshot.generated_cover_letters,
-            average_resume_score=summary.snapshot.average_resume_score,
-            average_job_match_score=summary.snapshot.average_job_match_score,
-            average_tailoring_score=summary.snapshot.average_tailoring_score,
-        ),
-        analytics=AnalyticsResponse(
-            id=summary.analytics.id,
-            user_id=summary.analytics.user_id,
-            total_ai_requests=summary.analytics.total_ai_requests,
-            total_tokens_used=summary.analytics.total_tokens_used,
-            successful_requests=summary.analytics.successful_requests,
-            failed_requests=summary.analytics.failed_requests,
-            success_rate=success_rate,
-            average_processing_time_ms=summary.analytics.average_processing_time_ms,
-            last_activity_at=summary.analytics.last_activity_at,
-            created_at=summary.analytics.created_at,
-            updated_at=summary.analytics.updated_at,
-        ),
-        recent_activity=[
-            ActivityResponse.model_validate(item) for item in summary.recent_activity
-        ],
-    )
+) -> DashboardOverviewResponse:
+    return await dashboard_service.get_dashboard_overview(user_id=current_user.id)
 
 
 @router.get(

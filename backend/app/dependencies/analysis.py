@@ -8,12 +8,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.dependency import get_db_session
 from app.dependencies.cache import get_cache_service
 from app.dependencies.llm import get_llm_provider
+from app.dependencies.notification import get_notification_service
 from app.dependencies.resume import get_resume_repository, get_storage_provider
 from app.llm.base import BaseLLMProvider
 from app.repositories.resume_analysis_repository import ResumeAnalysisRepository
 from app.repositories.resume_repository import ResumeRepository
 from app.services.cache_service import CacheService
 from app.services.chat_service import ChatService
+from app.services.notification_service import NotificationService
 from app.services.resume_analysis_service import ResumeAnalysisService
 from app.storage.base import StorageProvider
 
@@ -38,6 +40,7 @@ def get_analysis_service(
     storage_provider: StorageProvider = Depends(get_storage_provider),
     chat_service: ChatService = Depends(get_chat_service),
     cache_service: CacheService = Depends(get_cache_service),
+    notification_service: NotificationService = Depends(get_notification_service),
 ) -> ResumeAnalysisService:
     """Create and return a ResumeAnalysisService instance."""
     return ResumeAnalysisService(
@@ -46,4 +49,5 @@ def get_analysis_service(
         storage_provider,
         chat_service,
         cache_service=cache_service,
+        notification_service=notification_service,
     )

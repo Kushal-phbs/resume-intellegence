@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.dependency import get_db_session
 from app.dependencies.llm import get_llm_provider
+from app.dependencies.notification import get_notification_service
 from app.dependencies.resume import get_resume_repository, get_storage_provider
 from app.llm.base import BaseLLMProvider
 from app.repositories.cover_letter_repository import CoverLetterRepository
@@ -16,6 +17,7 @@ from app.repositories.resume_version_repository import ResumeVersionRepository
 from app.repositories.tailoring_session_repository import TailoringSessionRepository
 from app.services.chat_service import ChatService
 from app.services.export_service import ExportService
+from app.services.notification_service import NotificationService
 from app.services.resume_tailoring_service import ResumeTailoringService
 from app.storage.base import StorageProvider
 
@@ -66,6 +68,7 @@ def get_resume_tailoring_service(
     ),
     storage_provider: StorageProvider = Depends(get_storage_provider),
     chat_service: ChatService = Depends(get_chat_service),
+    notification_service: NotificationService = Depends(get_notification_service),
 ) -> ResumeTailoringService:
     return ResumeTailoringService(
         tailoring_session_repository,
@@ -75,6 +78,7 @@ def get_resume_tailoring_service(
         job_description_repository,
         storage_provider,
         chat_service,
+        notification_service,
     )
 
 

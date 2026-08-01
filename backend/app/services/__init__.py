@@ -5,6 +5,7 @@ from app.services.chat_service import ChatService
 from app.services.dashboard_service import DashboardService
 from app.services.export_service import ExportService
 from app.services.job_analysis_service import JobAnalysisService
+from app.services.notification_service import NotificationService
 from app.services.rate_limiter_service import RateLimiterService
 from app.services.resume_analysis_service import ResumeAnalysisService
 from app.services.resume_tailoring_service import ResumeTailoringService
@@ -16,6 +17,7 @@ __all__ = [
     "DashboardService",
     "ResumeAnalysisService",
     "JobAnalysisService",
+    "NotificationService",
     "ResumeTailoringService",
     "ExportService",
 ]

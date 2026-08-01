@@ -7,6 +7,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.enums import UserRole
 from app.enums.analytics import ActivityType, EntityType
 
 
@@ -99,3 +100,97 @@ class DashboardTrendsResponse(BaseModel):
     """Chart-friendly historical trend data."""
 
     points: list[TrendPointResponse] = Field(default_factory=list)
+
+
+class DashboardUserResponse(BaseModel):
+    """Authenticated user profile embedded in the dashboard payload."""
+
+    id: UUID
+    email: str
+    full_name: str
+    role: UserRole
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class DashboardStatisticsOverview(BaseModel):
+    """KPI section for unified dashboard payload."""
+
+    total_resumes: int = Field(ge=0)
+    average_ats_score: float | None = Field(default=None, ge=0, le=100)
+    highest_ats_score: int | None = Field(default=None, ge=0, le=100)
+    improvement_percentage: float
+    improvement_streak: int = Field(ge=0)
+
+
+class DashboardRecentResumeResponse(BaseModel):
+    """Recent resume item for the unified dashboard payload."""
+
+    id: UUID
+    title: str
+    is_primary: bool
+    latest_ats_score: int | None = Field(default=None, ge=0, le=100)
+    created_at: datetime
+    updated_at: datetime
+
+
+class DashboardAnalyticsSummaryResponse(BaseModel):
+    """AI usage summary section for unified dashboard payload."""
+
+    total_ai_requests: int = Field(ge=0)
+    successful_requests: int = Field(ge=0)
+    failed_requests: int = Field(ge=0)
+    success_rate: float = Field(ge=0, le=100)
+    total_tokens_used: int = Field(ge=0)
+    average_processing_time_ms: float | None = Field(default=None, ge=0)
+    last_activity_at: datetime | None = None
+
+
+class DashboardSuggestionResponse(BaseModel):
+    """Latest recommendation item from resume/job AI analyses."""
+
+    source: str
+    analysis_id: UUID
+    resume_id: UUID
+    suggestion: str = Field(min_length=1)
+    created_at: datetime
+
+
+class DashboardNotificationResponse(BaseModel):
+    """Unread activity notification in the dashboard feed."""
+
+    id: UUID
+    activity_type: ActivityType
+    entity_type: EntityType
+    entity_id: UUID | None = None
+    message: str = Field(min_length=1)
+    created_at: datetime
+    metadata_json: dict[str, object] = Field(default_factory=dict)
+
+
+class DashboardQuickActionResponse(BaseModel):
+    """Action item computed from current user dashboard state."""
+
+    key: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    description: str = Field(min_length=1)
+    route: str = Field(min_length=1)
+    priority: int = Field(ge=1, le=5)
+
+
+class DashboardOverviewResponse(BaseModel):
+    """Unified one-call dashboard payload returned by GET /dashboard."""
+
+    user: DashboardUserResponse
+    statistics: DashboardStatisticsOverview
+    recent_resumes: list[DashboardRecentResumeResponse] = Field(default_factory=list)
+    score_distribution: dict[str, int] = Field(default_factory=dict)
+    analytics_summary: DashboardAnalyticsSummaryResponse
+    latest_ai_suggestions: list[DashboardSuggestionResponse] = Field(
+        default_factory=list
+    )
+    unread_notifications: list[DashboardNotificationResponse] = Field(
+        default_factory=list
+    )
+    quick_actions: list[DashboardQuickActionResponse] = Field(default_factory=list)

@@ -9,7 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.settings import settings
 from app.db.dependency import get_db_session
+from app.dependencies.notification import get_notification_service
 from app.repositories.resume_repository import ResumeRepository
+from app.services.notification_service import NotificationService
 from app.services.resume_service import ResumeService
 from app.storage.base import StorageProvider
 from app.storage.local import LocalStorageProvider
@@ -36,6 +38,7 @@ def get_resume_repository(
 def get_resume_service(
     resume_repository: ResumeRepository = Depends(get_resume_repository),
     storage_provider: StorageProvider = Depends(get_storage_provider),
+    notification_service: NotificationService = Depends(get_notification_service),
 ) -> ResumeService:
     """Create and return a ``ResumeService`` instance."""
-    return ResumeService(resume_repository, storage_provider)
+    return ResumeService(resume_repository, storage_provider, notification_service)

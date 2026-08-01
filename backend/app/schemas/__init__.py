@@ -31,6 +31,13 @@ from app.schemas.job_analysis import (
     MatchedSkillResponse,
     MissingSkillResponse,
 )
+from app.schemas.notification import (
+    NotificationCreate,
+    NotificationListResponse,
+    NotificationResponse,
+    NotificationUpdate,
+    UnreadNotificationCount,
+)
 from app.schemas.resume import (
     ResumeListResponse,
     ResumeResponse,
@@ -72,6 +79,11 @@ __all__ = [
     "KeywordMatchResponse",
     "JobAnalysisSummaryResponse",
     "JobAnalysisResponse",
+    "NotificationResponse",
+    "NotificationCreate",
+    "NotificationUpdate",
+    "NotificationListResponse",
+    "UnreadNotificationCount",
     "ResumeResponse",
     "ResumeListResponse",
     "ResumeVersionResponse",

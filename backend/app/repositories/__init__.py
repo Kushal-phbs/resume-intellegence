@@ -6,6 +6,7 @@ from app.repositories.cover_letter_repository import CoverLetterRepository
 from app.repositories.dashboard_repository import DashboardRepository
 from app.repositories.job_analysis_repository import JobAnalysisRepository
 from app.repositories.job_description_repository import JobDescriptionRepository
+from app.repositories.notification_repository import NotificationRepository
 from app.repositories.resume_analysis_repository import ResumeAnalysisRepository
 from app.repositories.resume_repository import ResumeRepository
 from app.repositories.resume_version_repository import ResumeVersionRepository
@@ -21,6 +22,7 @@ __all__ = [
     "ActivityRepository",
     "JobDescriptionRepository",
     "JobAnalysisRepository",
+    "NotificationRepository",
     "TailoringSessionRepository",
     "ResumeVersionRepository",
     "CoverLetterRepository",

@@ -35,7 +35,9 @@ from app.repositories.job_description_repository import JobDescriptionRepository
 from app.repositories.resume_repository import ResumeRepository
 from app.repositories.resume_version_repository import ResumeVersionRepository
 from app.repositories.tailoring_session_repository import TailoringSessionRepository
+from app.schemas.notification import NotificationCreate
 from app.services.chat_service import ChatService
+from app.services.notification_service import NotificationService
 from app.storage.base import StorageProvider
 
 
@@ -51,6 +53,7 @@ class ResumeTailoringService:
         job_description_repository: JobDescriptionRepository,
         storage_provider: StorageProvider,
         chat_service: ChatService,
+        notification_service: NotificationService | None = None,
         parser: TailoringParser | None = None,
         extractor_factory: TextExtractorFactory | None = None,
     ) -> None:
@@ -61,6 +64,7 @@ class ResumeTailoringService:
         self._job_descriptions = job_description_repository
         self._storage = storage_provider
         self._chat_service = chat_service
+        self._notifications = notification_service
         self._parser = parser or TailoringParser()
         self._extractor_factory = extractor_factory or TextExtractorFactory()
 
@@ -138,6 +142,38 @@ class ResumeTailoringService:
             if failed is None:
                 raise ExternalServiceException("Tailoring session persistence failed")
             raise
+
+        if self._notifications is not None:
+            await self._notifications.create_notification(
+                user_id=user_id,
+                payload=NotificationCreate(
+                    title="Resume tailoring complete",
+                    message="Your tailored resume has been generated successfully.",
+                    type="resume_tailoring_completed",
+                    priority="high",
+                    action_url=f"/resume-tailoring/{updated_session.id}/resume",
+                    metadata_json={
+                        "resume_id": str(resume_id),
+                        "tailoring_session_id": str(updated_session.id),
+                        "entity_id": str(updated_session.id),
+                    },
+                ),
+            )
+            await self._notifications.create_notification(
+                user_id=user_id,
+                payload=NotificationCreate(
+                    title="Cover letter generated",
+                    message="A personalized cover letter is ready.",
+                    type="cover_letter_generated",
+                    priority="medium",
+                    action_url=f"/resume-tailoring/{updated_session.id}/cover-letter",
+                    metadata_json={
+                        "resume_id": str(resume_id),
+                        "tailoring_session_id": str(updated_session.id),
+                        "entity_id": str(updated_session.id),
+                    },
+                ),
+            )
 
         return ResumeTailoringDTO(
             session=self._to_session_dto(updated_session),

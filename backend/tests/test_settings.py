@@ -31,6 +31,9 @@ def test_settings_accepts_valid_security_configuration() -> None:
     assert result.jwt_algorithm == "HS256"
     assert result.access_token_expire_minutes == 15
     assert result.refresh_token_expire_days == 7
+    assert result.groq_base_url == "https://api.groq.com/openai/v1"
+    assert result.groq_http_timeout == 30
+    assert result.groq_max_retries == 3
 
 
 def test_settings_rejects_missing_secret_key() -> None:

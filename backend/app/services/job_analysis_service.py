@@ -36,8 +36,10 @@ from app.schemas.job_analysis import (
     MatchedSkillResponse,
     MissingSkillResponse,
 )
+from app.schemas.notification import NotificationCreate
 from app.services.cache_service import CacheService
 from app.services.chat_service import ChatService
+from app.services.notification_service import NotificationService
 from app.storage.base import StorageProvider
 
 
@@ -54,6 +56,7 @@ class JobAnalysisService:
         parser: JobAnalysisParser | None = None,
         extractor_factory: TextExtractorFactory | None = None,
         cache_service: CacheService | None = None,
+        notification_service: NotificationService | None = None,
     ) -> None:
         self._job_analyses = job_analysis_repository
         self._resumes = resume_repository
@@ -63,6 +66,7 @@ class JobAnalysisService:
         self._parser = parser or JobAnalysisParser()
         self._extractor_factory = extractor_factory or TextExtractorFactory()
         self._cache = cache_service
+        self._notifications = notification_service
 
     async def analyze_job_match(
         self,
@@ -134,6 +138,23 @@ class JobAnalysisService:
 
         if updated is None:
             raise ExternalServiceException("Job analysis persistence failed")
+
+        if self._notifications is not None:
+            await self._notifications.create_notification(
+                user_id=user_id,
+                payload=NotificationCreate(
+                    title="Job analysis complete",
+                    message="Your resume-to-job match analysis is ready.",
+                    type="job_analysis_completed",
+                    priority="high",
+                    action_url=f"/job-analysis/{updated.id}",
+                    metadata_json={
+                        "resume_id": str(resume_id),
+                        "analysis_id": str(updated.id),
+                        "entity_id": str(updated.id),
+                    },
+                ),
+            )
 
         await self._invalidate_user_cache(user_id)
         return self._to_response(updated)

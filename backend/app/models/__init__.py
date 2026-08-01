@@ -5,13 +5,16 @@ which is required for Alembic autogenerate to detect the full schema.
 """
 
 from app.models.activity_log import ActivityLog
+from app.models.conversation import Conversation
 from app.models.cover_letter import CoverLetter
 from app.models.dashboard_snapshot import DashboardSnapshot
 from app.models.job_analysis import JobAnalysis
 from app.models.job_description import JobDescription
 from app.models.keyword_match import KeywordMatch
 from app.models.matched_skill import MatchedSkill
+from app.models.message import Message
 from app.models.missing_skill import MissingSkill
+from app.models.notification import Notification
 from app.models.profile import Profile
 from app.models.resume import Resume
 from app.models.resume_analysis import ResumeAnalysis
@@ -42,4 +45,7 @@ __all__ = [
     "DashboardSnapshot",
     "UserAnalytics",
     "ActivityLog",
+    "Notification",
+    "Conversation",
+    "Message",
 ]

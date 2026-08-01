@@ -14,12 +14,14 @@ from app.core.exceptions import (
 from app.enums import ResumeFileType
 from app.models.resume import Resume
 from app.repositories.resume_repository import ResumeRepository
+from app.schemas.notification import NotificationCreate
 from app.schemas.resume import (
     ResumeListResponse,
     ResumeResponse,
     ResumeUploadResponse,
     ResumeVersionResponse,
 )
+from app.services.notification_service import NotificationService
 from app.storage.base import StorageProvider
 
 
@@ -33,10 +35,14 @@ class ResumeService:
     """
 
     def __init__(
-        self, resume_repository: ResumeRepository, storage_provider: StorageProvider
+        self,
+        resume_repository: ResumeRepository,
+        storage_provider: StorageProvider,
+        notification_service: NotificationService | None = None,
     ) -> None:
         self._resumes = resume_repository
         self._storage = storage_provider
+        self._notifications = notification_service
 
     async def upload_resume(
         self,
@@ -83,6 +89,23 @@ class ResumeService:
             if "resume" in locals():
                 await self._resumes.delete(resume.id)
             raise
+
+        if self._notifications is not None:
+            await self._notifications.create_notification(
+                user_id=user_id,
+                payload=NotificationCreate(
+                    title="Resume uploaded",
+                    message=f"{title} was uploaded successfully.",
+                    type="resume_uploaded",
+                    priority="medium",
+                    action_url=f"/resumes/{resume.id}",
+                    metadata_json={
+                        "resume_id": str(resume.id),
+                        "version_id": str(version.id),
+                        "entity_id": str(resume.id),
+                    },
+                ),
+            )
 
         return ResumeUploadResponse(
             resume=ResumeResponse.model_validate(resume),

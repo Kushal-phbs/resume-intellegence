@@ -12,8 +12,10 @@ from app.enums import UserRole
 
 if TYPE_CHECKING:
     from app.models.activity_log import ActivityLog
+    from app.models.conversation import Conversation
     from app.models.dashboard_snapshot import DashboardSnapshot
     from app.models.job_description import JobDescription
+    from app.models.notification import Notification
     from app.models.profile import Profile
     from app.models.resume import Resume
     from app.models.user_analytics import UserAnalytics
@@ -62,6 +64,16 @@ class User(UUIDMixin, TimestampMixin, Base):
         passive_deletes=True,
     )
     activity_logs: Mapped[list["ActivityLog"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    notifications: Mapped[list["Notification"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    conversations: Mapped[list["Conversation"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
         passive_deletes=True,

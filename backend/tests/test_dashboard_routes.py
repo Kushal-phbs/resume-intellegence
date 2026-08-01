@@ -19,6 +19,7 @@ from app.dto.analytics import (
     DashboardSummaryDTO,
 )
 from app.enums.analytics import ActivityType, EntityType
+from app.schemas.dashboard import DashboardOverviewResponse
 
 
 class _DashboardServiceStub:
@@ -79,6 +80,52 @@ class _DashboardServiceStub:
         self._assert_owner(user_id)
         _ = activity_limit
         return self.summary
+
+    async def get_dashboard_overview(
+        self,
+        *,
+        user_id: UUID,
+    ) -> DashboardOverviewResponse:
+        self._assert_owner(user_id)
+        now = datetime.now(UTC)
+        return DashboardOverviewResponse(
+            user={
+                "id": user_id,
+                "email": "user@example.com",
+                "full_name": "Test User",
+                "role": "user",
+                "is_active": True,
+                "created_at": now,
+                "updated_at": now,
+            },
+            statistics={
+                "total_resumes": 3,
+                "average_ats_score": 81.2,
+                "highest_ats_score": 90,
+                "improvement_percentage": 12.5,
+                "improvement_streak": 2,
+            },
+            recent_resumes=[],
+            score_distribution={
+                "0-20": 0,
+                "21-40": 0,
+                "41-60": 1,
+                "61-80": 1,
+                "81-100": 1,
+            },
+            analytics_summary={
+                "total_ai_requests": 10,
+                "successful_requests": 8,
+                "failed_requests": 2,
+                "success_rate": 80.0,
+                "total_tokens_used": 3000,
+                "average_processing_time_ms": 245.5,
+                "last_activity_at": now,
+            },
+            latest_ai_suggestions=[],
+            unread_notifications=[],
+            quick_actions=[],
+        )
 
     async def get_snapshot(self, *, user_id: UUID) -> DashboardDTO:
         self._assert_owner(user_id)
@@ -186,9 +233,10 @@ def test_get_dashboard_success() -> None:
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["summary"]["total_resumes"] == 3
-    assert payload["analytics"]["success_rate"] == 80.0
-    assert payload["recent_activity"][0]["activity_type"] == ActivityType.LOGIN.value
+    assert payload["user"]["id"] is not None
+    assert payload["statistics"]["total_resumes"] == 3
+    assert payload["analytics_summary"]["success_rate"] == 80.0
+    assert payload["score_distribution"]["81-100"] == 1
 
 
 def test_get_dashboard_summary_success() -> None:

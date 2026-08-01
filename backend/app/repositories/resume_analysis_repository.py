@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from app.dto.analysis import AnalysisResult
 from app.enums import AnalysisStatus
+from app.models.resume import Resume
 from app.models.resume_analysis import ResumeAnalysis
 from app.models.resume_keyword import ResumeKeyword
 from app.models.resume_skill import ResumeSkill
@@ -179,6 +180,25 @@ class ResumeAnalysisRepository:
                 selectinload(ResumeAnalysis.keywords),
             )
             .where(ResumeAnalysis.resume_id == resume_id)
+            .order_by(
+                ResumeAnalysis.created_at.desc(),
+                ResumeAnalysis.updated_at.desc(),
+                ResumeAnalysis.id.desc(),
+            )
+        )
+        return list(result.scalars().all())
+
+    async def list_by_user(self, user_id: UUID) -> list[ResumeAnalysis]:
+        """Return all analyses for resumes owned by a user, newest first."""
+        result = await self._session.execute(
+            select(ResumeAnalysis)
+            .options(
+                selectinload(ResumeAnalysis.resume),
+                selectinload(ResumeAnalysis.skills),
+                selectinload(ResumeAnalysis.keywords),
+            )
+            .join(ResumeAnalysis.resume)
+            .where(Resume.user_id == user_id)
             .order_by(
                 ResumeAnalysis.created_at.desc(),
                 ResumeAnalysis.updated_at.desc(),

@@ -30,7 +30,10 @@ class Settings(BaseSettings):
     environment: str = "development"
     llm_provider: str = "groq"
     groq_api_key: str = ""
-    groq_model: str = "qwen/qwen3-32b"
+    groq_model: str = "llama-3.3-70b-versatile"
+    groq_base_url: str = "https://api.groq.com/openai/v1"
+    groq_http_timeout: int = 30
+    groq_max_retries: int = 3
 
     database_url: str = ""
     db_echo: bool = False
@@ -129,6 +132,19 @@ class Settings(BaseSettings):
                 )
             if not self.groq_model:
                 raise ValueError("GROQ_MODEL must be set when llm_provider is 'groq'.")
+            if not self.groq_base_url:
+                raise ValueError(
+                    "GROQ_BASE_URL must be set when llm_provider is 'groq'."
+                )
+            if not (
+                self.groq_base_url.startswith("https://")
+                or self.groq_base_url.startswith("http://")
+            ):
+                raise ValueError("GROQ_BASE_URL must start with http:// or https://")
+            if self.groq_http_timeout <= 0:
+                raise ValueError("GROQ_HTTP_TIMEOUT must be a positive integer.")
+            if self.groq_max_retries < 0:
+                raise ValueError("GROQ_MAX_RETRIES must be zero or greater.")
 
         return self
 

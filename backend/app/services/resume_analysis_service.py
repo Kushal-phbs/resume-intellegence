@@ -31,8 +31,10 @@ from app.schemas.analysis import (
     ResumeAnalysisSummaryResponse,
     SkillResponse,
 )
+from app.schemas.notification import NotificationCreate
 from app.services.cache_service import CacheService
 from app.services.chat_service import ChatService
+from app.services.notification_service import NotificationService
 from app.storage.base import StorageProvider
 
 
@@ -52,6 +54,7 @@ class ResumeAnalysisService:
         analysis_parser: AnalysisParser | None = None,
         extractor_factory: TextExtractorFactory | None = None,
         cache_service: CacheService | None = None,
+        notification_service: NotificationService | None = None,
     ) -> None:
         self._analysis_repository = analysis_repository
         self._resume_repository = resume_repository
@@ -60,6 +63,7 @@ class ResumeAnalysisService:
         self._analysis_parser = analysis_parser or AnalysisParser()
         self._extractor_factory = extractor_factory or TextExtractorFactory()
         self._cache = cache_service
+        self._notifications = notification_service
 
     async def analyze_resume(
         self, user_id: UUID, resume_id: UUID
@@ -125,6 +129,23 @@ class ResumeAnalysisService:
 
         if updated is None:
             raise ExternalServiceException("Analysis persistence failed")
+
+        if self._notifications is not None:
+            await self._notifications.create_notification(
+                user_id=user_id,
+                payload=NotificationCreate(
+                    title="Resume analysis complete",
+                    message="Your resume ATS analysis has completed.",
+                    type="resume_analysis_completed",
+                    priority="high",
+                    action_url=f"/analysis/{resume_id}",
+                    metadata_json={
+                        "resume_id": str(resume_id),
+                        "analysis_id": str(updated.id),
+                        "entity_id": str(updated.id),
+                    },
+                ),
+            )
 
         await self._invalidate_resume_cache(user_id=user_id, resume_id=resume_id)
         return self._to_response(updated)
