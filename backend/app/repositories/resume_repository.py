@@ -6,6 +6,7 @@ from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.resume import Resume
 from app.models.resume_version import ResumeVersion
@@ -50,7 +51,9 @@ class ResumeRepository:
             Matching resume entity or ``None`` when no row exists.
         """
         result = await self._session.execute(
-            select(Resume).where(Resume.id == resume_id)
+            select(Resume)
+            .options(selectinload(Resume.versions))
+            .where(Resume.id == resume_id)
         )
         return result.scalar_one_or_none()
 
@@ -68,7 +71,12 @@ class ResumeRepository:
         )
         return list(result.scalars().all())
 
-    async def delete(self, resume_id: UUID) -> bool:
+    async def delete(
+        self,
+        resume_id: UUID,
+        *,
+        resume: Resume | None = None,
+    ) -> bool:
         """Delete a resume by UUID.
 
         Args:
@@ -77,7 +85,8 @@ class ResumeRepository:
         Returns:
             ``True`` if a row was deleted, ``False`` if it did not exist.
         """
-        resume = await self.get(resume_id)
+        if resume is None:
+            resume = await self.get(resume_id)
         if resume is None:
             return False
         await self._session.delete(resume)

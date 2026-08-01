@@ -20,9 +20,17 @@ class ResumeUploadMetadata(BaseModel):
     enforced by ``ResumeService`` using the configured settings.
     """
 
-    filename: str = Field(min_length=1, max_length=255)
-    content_type: str = Field(min_length=1, max_length=255)
-    size_bytes: int = Field(gt=0)
+    filename: str = Field(
+        min_length=1,
+        max_length=255,
+        description="Original uploaded filename including extension.",
+    )
+    content_type: str = Field(
+        min_length=1,
+        max_length=255,
+        description="Client-provided MIME type for the uploaded file.",
+    )
+    size_bytes: int = Field(gt=0, description="Uploaded file size in bytes.")
 
     @field_validator("filename")
     @classmethod
@@ -40,19 +48,21 @@ class ResumeResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: UUID
-    user_id: UUID
-    title: str
-    is_primary: bool
-    created_at: datetime
-    updated_at: datetime
+    id: UUID = Field(description="Resume identifier.")
+    user_id: UUID = Field(description="Owner user identifier.")
+    title: str = Field(description="Resume title.")
+    is_primary: bool = Field(description="Whether this resume is marked as primary.")
+    created_at: datetime = Field(description="Resume creation timestamp.")
+    updated_at: datetime = Field(description="Last resume update timestamp.")
 
 
 class ResumeListResponse(BaseModel):
     """A paginated-friendly list of resumes."""
 
-    items: list[ResumeResponse]
-    total: int
+    items: list[ResumeResponse] = Field(
+        description="Resume items for the current page."
+    )
+    total: int = Field(ge=0, description="Total number of resumes available.")
 
 
 class ResumeVersionResponse(BaseModel):
@@ -60,19 +70,27 @@ class ResumeVersionResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: UUID
-    resume_id: UUID
-    version_number: int
-    content: str
-    file_path: str | None
-    created_at: datetime
-    updated_at: datetime
+    id: UUID = Field(description="Resume version identifier.")
+    resume_id: UUID = Field(description="Parent resume identifier.")
+    version_number: int = Field(ge=1, description="Monotonic version number.")
+    content: str = Field(description="Extracted text content for this version.")
+    file_path: str | None = Field(
+        default=None,
+        description="Internal storage path when available.",
+    )
+    created_at: datetime = Field(description="Version creation timestamp.")
+    updated_at: datetime = Field(description="Last version update timestamp.")
 
 
 class ResumeUploadResponse(BaseModel):
     """Response returned after successfully uploading a resume."""
 
-    resume: ResumeResponse
-    version: ResumeVersionResponse
-    status: ResumeStatus = ResumeStatus.ACTIVE
-    file_type: ResumeFileType
+    resume: ResumeResponse = Field(description="Created resume record.")
+    version: ResumeVersionResponse = Field(
+        description="Initial stored version for the uploaded resume."
+    )
+    status: ResumeStatus = Field(
+        default=ResumeStatus.ACTIVE,
+        description="Lifecycle status assigned after upload.",
+    )
+    file_type: ResumeFileType = Field(description="Detected uploaded file type.")

@@ -16,13 +16,22 @@ class ActivityResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: UUID | None = None
-    user_id: UUID
-    activity_type: ActivityType
-    entity_type: EntityType
-    entity_id: UUID | None = None
-    metadata_json: dict[str, object] = Field(default_factory=dict)
-    created_at: datetime | None = None
+    id: UUID | None = Field(default=None, description="Activity event identifier.")
+    user_id: UUID = Field(description="Owner user identifier.")
+    activity_type: ActivityType = Field(description="Activity type classification.")
+    entity_type: EntityType = Field(description="Entity category for this event.")
+    entity_id: UUID | None = Field(
+        default=None,
+        description="Optional related entity identifier.",
+    )
+    metadata_json: dict[str, object] = Field(
+        default_factory=dict,
+        description="Additional event metadata.",
+    )
+    created_at: datetime | None = Field(
+        default=None,
+        description="Event creation timestamp.",
+    )
 
 
 class AnalyticsResponse(BaseModel):
@@ -30,13 +39,20 @@ class AnalyticsResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: UUID | None = None
-    user_id: UUID
-    total_ai_requests: int = Field(ge=0)
-    total_tokens_used: int = Field(ge=0)
-    successful_requests: int = Field(ge=0)
-    failed_requests: int = Field(ge=0)
-    success_rate: float = Field(ge=0, le=100)
+    id: UUID | None = Field(default=None, description="Analytics record identifier.")
+    user_id: UUID = Field(description="Owner user identifier.")
+    total_ai_requests: int = Field(ge=0, description="Total number of AI requests.")
+    total_tokens_used: int = Field(
+        ge=0,
+        description="Total number of tokens consumed across AI requests.",
+    )
+    successful_requests: int = Field(ge=0, description="Count of successful requests.")
+    failed_requests: int = Field(ge=0, description="Count of failed requests.")
+    success_rate: float = Field(
+        ge=0,
+        le=100,
+        description="Percentage of successful AI requests.",
+    )
     average_processing_time_ms: float | None = Field(default=None, ge=0)
     last_activity_at: datetime | None = None
     created_at: datetime | None = None
@@ -48,11 +64,20 @@ class DashboardSummaryResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    total_resumes: int = Field(ge=0)
-    total_resume_analyses: int = Field(ge=0)
-    total_job_analyses: int = Field(ge=0)
-    total_tailoring_sessions: int = Field(ge=0)
-    generated_cover_letters: int = Field(ge=0)
+    total_resumes: int = Field(ge=0, description="Total resumes owned by the user.")
+    total_resume_analyses: int = Field(
+        ge=0,
+        description="Total resume analyses performed.",
+    )
+    total_job_analyses: int = Field(ge=0, description="Total job analyses performed.")
+    total_tailoring_sessions: int = Field(
+        ge=0,
+        description="Total resume tailoring sessions generated.",
+    )
+    generated_cover_letters: int = Field(
+        ge=0,
+        description="Total generated cover letters.",
+    )
     average_resume_score: float | None = Field(default=None, ge=0, le=100)
     average_job_match_score: float | None = Field(default=None, ge=0, le=100)
     average_tailoring_score: float | None = Field(default=None, ge=0, le=100)
@@ -91,15 +116,25 @@ class TrendPointResponse(BaseModel):
 class DashboardResponse(BaseModel):
     """Complete dashboard payload for authenticated users."""
 
-    summary: DashboardSummaryResponse
-    analytics: AnalyticsResponse
-    recent_activity: list[ActivityResponse] = Field(default_factory=list)
+    summary: DashboardSummaryResponse = Field(
+        description="Top-level dashboard KPI summary."
+    )
+    analytics: AnalyticsResponse = Field(
+        description="AI usage and performance metrics."
+    )
+    recent_activity: list[ActivityResponse] = Field(
+        default_factory=list,
+        description="Recent user activity items.",
+    )
 
 
 class DashboardTrendsResponse(BaseModel):
     """Chart-friendly historical trend data."""
 
-    points: list[TrendPointResponse] = Field(default_factory=list)
+    points: list[TrendPointResponse] = Field(
+        default_factory=list,
+        description="Ordered dashboard trend points.",
+    )
 
 
 class DashboardUserResponse(BaseModel):
@@ -182,11 +217,17 @@ class DashboardQuickActionResponse(BaseModel):
 class DashboardOverviewResponse(BaseModel):
     """Unified one-call dashboard payload returned by GET /dashboard."""
 
-    user: DashboardUserResponse
-    statistics: DashboardStatisticsOverview
+    user: DashboardUserResponse = Field(
+        description="Authenticated user profile summary."
+    )
+    statistics: DashboardStatisticsOverview = Field(
+        description="Dashboard statistics and score indicators."
+    )
     recent_resumes: list[DashboardRecentResumeResponse] = Field(default_factory=list)
     score_distribution: dict[str, int] = Field(default_factory=dict)
-    analytics_summary: DashboardAnalyticsSummaryResponse
+    analytics_summary: DashboardAnalyticsSummaryResponse = Field(
+        description="Aggregate AI usage summary metrics."
+    )
     latest_ai_suggestions: list[DashboardSuggestionResponse] = Field(
         default_factory=list
     )

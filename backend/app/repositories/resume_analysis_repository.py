@@ -113,7 +113,7 @@ class ResumeAnalysisRepository:
         ]
 
         await self._session.flush()
-        return await self.get_by_id(analysis_id)
+        return analysis
 
     async def get_latest(self, resume_id: UUID) -> ResumeAnalysis | None:
         """Return the most recent analysis for a resume, if any."""
@@ -207,9 +207,15 @@ class ResumeAnalysisRepository:
         )
         return list(result.scalars().all())
 
-    async def delete(self, analysis_id: UUID) -> bool:
+    async def delete(
+        self,
+        analysis_id: UUID,
+        *,
+        analysis: ResumeAnalysis | None = None,
+    ) -> bool:
         """Delete a stored analysis row."""
-        analysis = await self.get_by_id(analysis_id)
+        if analysis is None:
+            analysis = await self.get_by_id(analysis_id)
         if analysis is None:
             return False
         await self._session.delete(analysis)

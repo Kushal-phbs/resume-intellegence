@@ -213,8 +213,8 @@ class ResumeTailoringService:
         return self._to_cover_letter_dto(letter)
 
     async def delete_session(self, *, user_id: UUID, session_id: UUID) -> None:
-        await self._get_owned_session(user_id=user_id, session_id=session_id)
-        deleted = await self._tailoring_sessions.delete(session_id)
+        session = await self._get_owned_session(user_id=user_id, session_id=session_id)
+        deleted = await self._tailoring_sessions.delete(session_id, session=session)
         if not deleted:
             raise ResourceNotFoundException("Tailoring session not found")
 

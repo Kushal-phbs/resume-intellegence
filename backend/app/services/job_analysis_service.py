@@ -2,17 +2,20 @@
 
 from __future__ import annotations
 
+from typing import Any
 from uuid import UUID
 
 import anyio
 
 from app.config import settings
+from app.core.cache import RedisCache
 from app.core.exceptions import (
     ExternalServiceException,
     ResourceNotFoundException,
     ResumeNotFoundException,
     ValidationException,
 )
+from app.core.logging import logger
 from app.dto.job_analysis import JobAnalysisResult
 from app.enums import JobAnalysisStatus
 from app.extractors.factory import TextExtractorFactory
@@ -37,7 +40,6 @@ from app.schemas.job_analysis import (
     MissingSkillResponse,
 )
 from app.schemas.notification import NotificationCreate
-from app.services.cache_service import CacheService
 from app.services.chat_service import ChatService
 from app.services.notification_service import NotificationService
 from app.storage.base import StorageProvider
@@ -55,7 +57,7 @@ class JobAnalysisService:
         chat_service: ChatService,
         parser: JobAnalysisParser | None = None,
         extractor_factory: TextExtractorFactory | None = None,
-        cache_service: CacheService | None = None,
+        cache_service: Any | None = None,
         notification_service: NotificationService | None = None,
     ) -> None:
         self._job_analyses = job_analysis_repository
@@ -65,7 +67,11 @@ class JobAnalysisService:
         self._chat_service = chat_service
         self._parser = parser or JobAnalysisParser()
         self._extractor_factory = extractor_factory or TextExtractorFactory()
-        self._cache = cache_service
+        self._cache = cache_service or RedisCache(
+            redis_url=settings.redis_url,
+            default_ttl_seconds=settings.cache_default_ttl_seconds,
+            enabled=settings.redis_enabled,
+        )
         self._notifications = notification_service
 
     async def analyze_job_match(
@@ -164,7 +170,7 @@ class JobAnalysisService:
     ) -> JobAnalysisResponse:
         """Return one job analysis owned by the requesting user."""
         if self._cache is not None:
-            cached = await self._cache.get(
+            cached = await self._cache_get(
                 namespace=self._analysis_namespace(user_id),
                 key=str(analysis_id),
             )
@@ -177,11 +183,11 @@ class JobAnalysisService:
         )
         response = self._to_response(analysis)
         if self._cache is not None:
-            await self._cache.set(
+            await self._cache_set(
                 namespace=self._analysis_namespace(user_id),
                 key=str(analysis_id),
                 value=response.model_dump(mode="json"),
-                ttl_seconds=settings.cache_job_analysis_ttl_seconds,
+                ttl_seconds=self._ttl_seconds(settings.cache_job_analysis_ttl_seconds),
             )
         return response
 
@@ -190,7 +196,7 @@ class JobAnalysisService:
     ) -> JobAnalysisSummaryResponse:
         """Return summary fields for a job analysis owned by the user."""
         if self._cache is not None:
-            cached = await self._cache.get(
+            cached = await self._cache_get(
                 namespace=self._summary_namespace(user_id),
                 key=str(analysis_id),
             )
@@ -203,11 +209,11 @@ class JobAnalysisService:
         )
         response = self._to_summary(analysis)
         if self._cache is not None:
-            await self._cache.set(
+            await self._cache_set(
                 namespace=self._summary_namespace(user_id),
                 key=str(analysis_id),
                 value=response.model_dump(mode="json"),
-                ttl_seconds=settings.cache_job_analysis_ttl_seconds,
+                ttl_seconds=self._ttl_seconds(settings.cache_job_analysis_ttl_seconds),
             )
         return response
 
@@ -252,13 +258,34 @@ class JobAnalysisService:
 
     async def list_history(self, *, user_id: UUID) -> list[JobAnalysisSummaryResponse]:
         """Return previous job analyses for the authenticated user."""
+        if self._cache is not None:
+            cached = await self._cache_get(
+                namespace=self._history_namespace(user_id),
+                key="latest",
+            )
+            if cached is not None:
+                return [
+                    JobAnalysisSummaryResponse.model_validate(item) for item in cached
+                ]
+
         analyses = await self._job_analyses.list_history_by_user(user_id)
-        return [self._to_summary(analysis) for analysis in analyses]
+        summaries = [self._to_summary(analysis) for analysis in analyses]
+        if self._cache is not None:
+            await self._cache_set(
+                namespace=self._history_namespace(user_id),
+                key="latest",
+                value=[item.model_dump(mode="json") for item in summaries],
+                ttl_seconds=self._ttl_seconds(settings.cache_job_analysis_ttl_seconds),
+            )
+        return summaries
 
     async def delete_analysis(self, *, user_id: UUID, analysis_id: UUID) -> None:
         """Delete one job analysis when it belongs to the user."""
-        await self._get_owned_analysis(user_id=user_id, analysis_id=analysis_id)
-        deleted = await self._job_analyses.delete(analysis_id)
+        analysis = await self._get_owned_analysis(
+            user_id=user_id,
+            analysis_id=analysis_id,
+        )
+        deleted = await self._job_analyses.delete(analysis_id, analysis=analysis)
         if not deleted:
             raise ResourceNotFoundException("Job analysis not found")
         await self._invalidate_user_cache(user_id)
@@ -266,14 +293,85 @@ class JobAnalysisService:
     async def _invalidate_user_cache(self, user_id: UUID) -> None:
         if self._cache is None:
             return
-        await self._cache.invalidate(self._analysis_namespace(user_id))
-        await self._cache.invalidate(self._summary_namespace(user_id))
+        await self._cache_delete_pattern(self._analysis_pattern(user_id))
+        await self._cache_delete_pattern(self._summary_pattern(user_id))
+        await self._cache_delete_pattern(self._history_pattern(user_id))
 
     def _analysis_namespace(self, user_id: UUID) -> str:
         return f"job_analysis:detail:{user_id}"
 
+    def _analysis_pattern(self, user_id: UUID) -> str:
+        return f"{self._analysis_namespace(user_id)}:*"
+
     def _summary_namespace(self, user_id: UUID) -> str:
         return f"job_analysis:summary:{user_id}"
+
+    def _summary_pattern(self, user_id: UUID) -> str:
+        return f"{self._summary_namespace(user_id)}:*"
+
+    def _history_namespace(self, user_id: UUID) -> str:
+        return f"job_analysis:history:{user_id}"
+
+    def _history_pattern(self, user_id: UUID) -> str:
+        return f"{self._history_namespace(user_id)}:*"
+
+    def _cache_key(self, namespace: str, key: str) -> str:
+        return f"{namespace}:{key}"
+
+    def _ttl_seconds(self, configured_ttl_seconds: int) -> int:
+        return max(300, min(int(configured_ttl_seconds), 600))
+
+    async def _cache_get(self, *, namespace: str, key: str) -> Any | None:
+        if self._cache is None:
+            return None
+
+        cache_key = self._cache_key(namespace, key)
+        try:
+            cached = await self._cache.get(cache_key)
+        except TypeError:
+            cached = await self._cache.get(namespace=namespace, key=key)
+
+        if cached is None:
+            logger.debug("cache.miss key=%s", cache_key)
+            return None
+
+        logger.debug("cache.hit key=%s", cache_key)
+        return cached
+
+    async def _cache_set(
+        self,
+        *,
+        namespace: str,
+        key: str,
+        value: Any,
+        ttl_seconds: int,
+    ) -> None:
+        if self._cache is None:
+            return
+
+        cache_key = self._cache_key(namespace, key)
+        try:
+            await self._cache.set(cache_key, value, ttl_seconds)
+        except TypeError:
+            await self._cache.set(
+                namespace=namespace,
+                key=key,
+                value=value,
+                ttl_seconds=ttl_seconds,
+            )
+
+    async def _cache_delete_pattern(self, pattern: str) -> None:
+        if self._cache is None:
+            return
+
+        delete_pattern = getattr(self._cache, "delete_pattern", None)
+        if callable(delete_pattern):
+            await delete_pattern(pattern)
+            return
+
+        invalidate = getattr(self._cache, "invalidate", None)
+        if callable(invalidate):
+            await invalidate(pattern[:-1] if pattern.endswith("*") else pattern)
 
     async def _get_owned_resume(self, *, user_id: UUID, resume_id: UUID) -> Resume:
         resume = await self._resumes.get(resume_id)

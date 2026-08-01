@@ -5,7 +5,14 @@ from __future__ import annotations
 from pathlib import Path
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    Query,
+    Response,
+    status,
+)
+from fastapi import Path as FastAPIPath
 from fastapi.responses import FileResponse
 
 from app.config import settings
@@ -29,12 +36,14 @@ router = APIRouter(prefix="/resume-tailoring", tags=["Resume Tailoring"])
 export_router = APIRouter(prefix="/export", tags=["Export"])
 
 _TAILORING_RESPONSES = {
+    200: {"description": "Tailoring resource returned successfully."},
     401: {"description": "Authentication required"},
     404: {"description": "Resume, job description, or tailoring session not found"},
     502: {"description": "Tailoring failed"},
 }
 
 _EXPORT_RESPONSES = {
+    200: {"description": "Export file generated and returned."},
     401: {"description": "Authentication required"},
     404: {"description": "Export source not found"},
     400: {"description": "Unsupported export format"},
@@ -50,11 +59,15 @@ _EXPORT_RESPONSES = {
         "Generate a tailored resume version and cover letter for the provided "
         "resume and job description."
     ),
-    responses=_TAILORING_RESPONSES,
+    responses={
+        201: {"description": "Tailoring session created with generated outputs."},
+        **_TAILORING_RESPONSES,
+        429: {"description": "Tailoring rate limit exceeded."},
+    },
 )
 async def create_tailoring_session_endpoint(
-    resume_id: UUID,
-    job_id: UUID,
+    resume_id: UUID = FastAPIPath(description="Resume identifier."),
+    job_id: UUID = FastAPIPath(description="Job description identifier."),
     _: None = Depends(
         limit(
             bucket="resume_tailoring",
@@ -99,7 +112,7 @@ async def list_tailoring_history_endpoint(
     responses=_TAILORING_RESPONSES,
 )
 async def get_tailoring_session_endpoint(
-    session_id: UUID,
+    session_id: UUID = FastAPIPath(description="Tailoring session identifier."),
     current_user: User = Depends(get_current_user),
     tailoring_service: ResumeTailoringService = Depends(get_resume_tailoring_service),
 ) -> TailoringSessionResponse:
@@ -118,7 +131,7 @@ async def get_tailoring_session_endpoint(
     responses=_TAILORING_RESPONSES,
 )
 async def get_tailored_resume_endpoint(
-    session_id: UUID,
+    session_id: UUID = FastAPIPath(description="Tailoring session identifier."),
     current_user: User = Depends(get_current_user),
     tailoring_service: ResumeTailoringService = Depends(get_resume_tailoring_service),
 ) -> ResumeVersionResponse:
@@ -137,7 +150,7 @@ async def get_tailored_resume_endpoint(
     responses=_TAILORING_RESPONSES,
 )
 async def get_cover_letter_endpoint(
-    session_id: UUID,
+    session_id: UUID = FastAPIPath(description="Tailoring session identifier."),
     current_user: User = Depends(get_current_user),
     tailoring_service: ResumeTailoringService = Depends(get_resume_tailoring_service),
 ) -> CoverLetterResponse:
@@ -154,12 +167,13 @@ async def get_cover_letter_endpoint(
     summary="Delete Tailoring Session",
     description="Delete a tailoring session owned by the authenticated user.",
     responses={
+        204: {"description": "Tailoring session deleted."},
         401: {"description": "Authentication required"},
         404: {"description": "Tailoring session not found"},
     },
 )
 async def delete_tailoring_session_endpoint(
-    session_id: UUID,
+    session_id: UUID = FastAPIPath(description="Tailoring session identifier."),
     current_user: User = Depends(get_current_user),
     tailoring_service: ResumeTailoringService = Depends(get_resume_tailoring_service),
 ) -> Response:
@@ -177,7 +191,7 @@ async def delete_tailoring_session_endpoint(
     responses=_EXPORT_RESPONSES,
 )
 async def export_resume_endpoint(
-    version_id: UUID,
+    version_id: UUID = FastAPIPath(description="Tailored resume version identifier."),
     format: str = Query(
         default="md",
         examples=["md", "docx", "pdf"],
@@ -207,7 +221,9 @@ async def export_resume_endpoint(
     responses=_EXPORT_RESPONSES,
 )
 async def export_cover_letter_endpoint(
-    cover_letter_id: UUID,
+    cover_letter_id: UUID = FastAPIPath(
+        description="Generated cover letter identifier."
+    ),
     format: str = Query(
         default="md",
         examples=["md", "docx", "pdf"],

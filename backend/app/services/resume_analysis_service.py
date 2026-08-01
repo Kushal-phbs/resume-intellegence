@@ -10,6 +10,7 @@ from app.core.exceptions import (
     ResumeNotFoundException,
     ValidationException,
 )
+from app.core.logging import logger
 from app.dto.analysis import AnalysisResult
 from app.enums import AnalysisStatus
 from app.extractors.factory import TextExtractorFactory
@@ -155,7 +156,7 @@ class ResumeAnalysisService:
     ) -> ResumeAnalysisResponse:
         """Return the newest completed analysis stored for a resume."""
         if self._cache is not None:
-            cached = await self._cache.get(
+            cached = await self._cache_get(
                 namespace=self._cache_namespace(user_id, resume_id),
                 key="latest",
             )
@@ -165,7 +166,7 @@ class ResumeAnalysisService:
         analysis = await self._get_latest_completed_analysis(user_id, resume_id)
         response = self._to_response(analysis)
         if self._cache is not None:
-            await self._cache.set(
+            await self._cache_set(
                 namespace=self._cache_namespace(user_id, resume_id),
                 key="latest",
                 value=response.model_dump(mode="json"),
@@ -178,7 +179,7 @@ class ResumeAnalysisService:
     ) -> ResumeAnalysisSummaryResponse:
         """Return the latest completed analysis summary for a resume."""
         if self._cache is not None:
-            cached = await self._cache.get(
+            cached = await self._cache_get(
                 namespace=self._cache_namespace(user_id, resume_id),
                 key="summary",
             )
@@ -188,7 +189,7 @@ class ResumeAnalysisService:
         analysis = await self._get_latest_completed_analysis(user_id, resume_id)
         response = self._to_summary(analysis)
         if self._cache is not None:
-            await self._cache.set(
+            await self._cache_set(
                 namespace=self._cache_namespace(user_id, resume_id),
                 key="summary",
                 value=response.model_dump(mode="json"),
@@ -225,7 +226,10 @@ class ResumeAnalysisService:
         analysis = await self._analysis_repository.get_by_id(analysis_id)
         if analysis is None or analysis.resume.user_id != user_id:
             raise ResumeNotFoundException("Analysis not found")
-        deleted = await self._analysis_repository.delete(analysis_id)
+        deleted = await self._analysis_repository.delete(
+            analysis_id,
+            analysis=analysis,
+        )
         if not deleted:
             raise ResumeNotFoundException("Analysis not found")
         await self._invalidate_resume_cache(
@@ -240,6 +244,36 @@ class ResumeAnalysisService:
 
     def _cache_namespace(self, user_id: UUID, resume_id: UUID) -> str:
         return f"resume_analysis:{user_id}:{resume_id}"
+
+    async def _cache_get(self, *, namespace: str, key: str):
+        if self._cache is None:
+            return None
+
+        cache_key = f"{namespace}:{key}"
+        cached = await self._cache.get(namespace=namespace, key=key)
+        if cached is None:
+            logger.debug("cache.miss key=%s", cache_key)
+            return None
+
+        logger.debug("cache.hit key=%s", cache_key)
+        return cached
+
+    async def _cache_set(
+        self,
+        *,
+        namespace: str,
+        key: str,
+        value,
+        ttl_seconds: int,
+    ) -> None:
+        if self._cache is None:
+            return
+        await self._cache.set(
+            namespace=namespace,
+            key=key,
+            value=value,
+            ttl_seconds=ttl_seconds,
+        )
 
     async def _get_owned_resume(self, *, user_id: UUID, resume_id: UUID) -> Resume:
         resume = await self._resume_repository.get(resume_id)

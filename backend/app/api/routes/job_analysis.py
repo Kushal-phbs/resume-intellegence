@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Path, status
 
 from app.config import settings
 from app.dependencies.auth import get_current_user
@@ -32,6 +32,8 @@ _JOB_ANALYSIS_ERROR_RESPONSES = {
 @router.get(
     "/history",
     response_model=list[JobAnalysisSummaryResponse],
+    summary="List Job Analysis History",
+    description="List previous job analyses owned by the authenticated user.",
     responses=_JOB_ANALYSIS_ERROR_RESPONSES,
 )
 async def get_job_analysis_history_endpoint(
@@ -46,11 +48,16 @@ async def get_job_analysis_history_endpoint(
     "/{resume_id}/{job_id}",
     response_model=JobAnalysisResponse,
     status_code=status.HTTP_201_CREATED,
+    summary="Analyze Resume Against Job",
+    description=(
+        "Run a job-match analysis using a resume and job description owned by "
+        "the authenticated user."
+    ),
     responses=_JOB_ANALYSIS_ERROR_RESPONSES,
 )
 async def analyze_job_endpoint(
-    resume_id: UUID,
-    job_id: UUID,
+    resume_id: UUID = Path(description="Resume identifier."),
+    job_id: UUID = Path(description="Job description identifier."),
     _: None = Depends(
         limit(
             bucket="job_analysis",
@@ -71,10 +78,12 @@ async def analyze_job_endpoint(
 @router.get(
     "/{analysis_id}",
     response_model=JobAnalysisResponse,
+    summary="Get Job Analysis",
+    description="Return complete details for a stored job analysis.",
     responses=_JOB_ANALYSIS_ERROR_RESPONSES,
 )
 async def get_job_analysis_endpoint(
-    analysis_id: UUID,
+    analysis_id: UUID = Path(description="Job analysis identifier."),
     current_user: User = Depends(get_current_user),
     job_analysis_service: JobAnalysisService = Depends(get_job_analysis_service),
 ) -> JobAnalysisResponse:
@@ -88,10 +97,12 @@ async def get_job_analysis_endpoint(
 @router.get(
     "/{analysis_id}/summary",
     response_model=JobAnalysisSummaryResponse,
+    summary="Get Job Analysis Summary",
+    description="Return summary scores and key insights for a job analysis.",
     responses=_JOB_ANALYSIS_ERROR_RESPONSES,
 )
 async def get_job_analysis_summary_endpoint(
-    analysis_id: UUID,
+    analysis_id: UUID = Path(description="Job analysis identifier."),
     current_user: User = Depends(get_current_user),
     job_analysis_service: JobAnalysisService = Depends(get_job_analysis_service),
 ) -> JobAnalysisSummaryResponse:
@@ -105,10 +116,12 @@ async def get_job_analysis_summary_endpoint(
 @router.get(
     "/{analysis_id}/matched-skills",
     response_model=list[MatchedSkillResponse],
+    summary="Get Matched Skills",
+    description="Return skills that match between resume and job requirements.",
     responses=_JOB_ANALYSIS_ERROR_RESPONSES,
 )
 async def get_job_analysis_matched_skills_endpoint(
-    analysis_id: UUID,
+    analysis_id: UUID = Path(description="Job analysis identifier."),
     current_user: User = Depends(get_current_user),
     job_analysis_service: JobAnalysisService = Depends(get_job_analysis_service),
 ) -> list[MatchedSkillResponse]:
@@ -122,10 +135,12 @@ async def get_job_analysis_matched_skills_endpoint(
 @router.get(
     "/{analysis_id}/missing-skills",
     response_model=list[MissingSkillResponse],
+    summary="Get Missing Skills",
+    description="Return skills required by the job but missing from the resume.",
     responses=_JOB_ANALYSIS_ERROR_RESPONSES,
 )
 async def get_job_analysis_missing_skills_endpoint(
-    analysis_id: UUID,
+    analysis_id: UUID = Path(description="Job analysis identifier."),
     current_user: User = Depends(get_current_user),
     job_analysis_service: JobAnalysisService = Depends(get_job_analysis_service),
 ) -> list[MissingSkillResponse]:
@@ -139,10 +154,12 @@ async def get_job_analysis_missing_skills_endpoint(
 @router.get(
     "/{analysis_id}/keywords",
     response_model=list[KeywordMatchResponse],
+    summary="Get Keyword Matches",
+    description="Return keyword matches extracted from the job analysis.",
     responses=_JOB_ANALYSIS_ERROR_RESPONSES,
 )
 async def get_job_analysis_keywords_endpoint(
-    analysis_id: UUID,
+    analysis_id: UUID = Path(description="Job analysis identifier."),
     current_user: User = Depends(get_current_user),
     job_analysis_service: JobAnalysisService = Depends(get_job_analysis_service),
 ) -> list[KeywordMatchResponse]:
@@ -156,13 +173,16 @@ async def get_job_analysis_keywords_endpoint(
 @router.delete(
     "/{analysis_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete Job Analysis",
+    description="Delete a job analysis record owned by the authenticated user.",
     responses={
+        204: {"description": "Job analysis deleted."},
         401: {"description": "Authentication required"},
         404: {"description": "Job analysis not found"},
     },
 )
 async def delete_job_analysis_endpoint(
-    analysis_id: UUID,
+    analysis_id: UUID = Path(description="Job analysis identifier."),
     current_user: User = Depends(get_current_user),
     job_analysis_service: JobAnalysisService = Depends(get_job_analysis_service),
 ) -> None:

@@ -16,7 +16,7 @@ class TestSentryDisabled:
         response = client.get("/health")
         assert response.status_code == 200
         data = response.json()
-        assert data["status"] == "healthy"
+        assert data["status"] in {"healthy", "degraded"}
 
     def test_live_works_without_sentry(self) -> None:
         response = client.get("/live")

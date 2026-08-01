@@ -52,10 +52,16 @@ class TailoringSessionRepository:
             )
 
         await self._session.flush()
-        return await self.get_by_id(session_id)
+        return session
 
-    async def delete(self, session_id: UUID) -> bool:
-        session = await self.get_by_id(session_id)
+    async def delete(
+        self,
+        session_id: UUID,
+        *,
+        session: TailoringSession | None = None,
+    ) -> bool:
+        if session is None:
+            session = await self.get_by_id(session_id)
         if session is None:
             return False
         await self._session.delete(session)

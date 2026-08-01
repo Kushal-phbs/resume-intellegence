@@ -248,6 +248,29 @@ def test_get_resume_returns_response_for_owner() -> None:
     assert result.id == resume.id
 
 
+def test_get_resume_returns_cached_response_without_repository_call() -> None:
+    service, resume_repository, _ = _build_service()
+    user_id = uuid4()
+    resume_id = uuid4()
+
+    service._cache_get = AsyncMock(
+        return_value={
+            "id": str(resume_id),
+            "user_id": str(user_id),
+            "title": "Cached Resume",
+            "is_primary": False,
+            "created_at": "2024-01-01T00:00:00",
+            "updated_at": "2024-01-01T00:00:00",
+        }
+    )
+
+    result = asyncio.run(service.get_resume(user_id=user_id, resume_id=resume_id))
+
+    assert result.id == resume_id
+    assert result.title == "Cached Resume"
+    resume_repository.get.assert_not_awaited()
+
+
 def test_get_resume_raises_when_not_found() -> None:
     service, resume_repository, _ = _build_service()
     resume_repository.get.return_value = None
@@ -274,7 +297,7 @@ def test_delete_resume_removes_files_and_row() -> None:
     asyncio.run(service.delete_resume(user_id=user_id, resume_id=resume.id))
 
     storage_provider.delete.assert_called_once_with(version.file_path)
-    resume_repository.delete.assert_awaited_once_with(resume.id)
+    resume_repository.delete.assert_awaited_once_with(resume.id, resume=resume)
 
 
 def test_get_download_path_returns_latest_version_path() -> None:

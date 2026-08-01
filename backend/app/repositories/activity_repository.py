@@ -26,6 +26,7 @@ class ActivityRepository:
         entity_id: UUID | None,
         metadata_json: dict[str, object] | None = None,
     ) -> ActivityLog:
+        """Insert and return a new activity log row."""
         activity = ActivityLog(
             user_id=user_id,
             activity_type=(
@@ -55,6 +56,7 @@ class ActivityRepository:
         entity_id: UUID | None,
         metadata_json: dict[str, object] | None = None,
     ) -> ActivityLog:
+        """Backward-compatible alias for :meth:`create`."""
         return await self.create(
             user_id=user_id,
             activity_type=activity_type,
@@ -69,6 +71,7 @@ class ActivityRepository:
         *,
         metadata_json: dict[str, object] | None = None,
     ) -> ActivityLog | None:
+        """Update mutable activity fields and return refreshed row when found."""
         activity = await self.get_by_id(activity_id)
         if activity is None:
             return None
@@ -80,6 +83,7 @@ class ActivityRepository:
         return await self.get_by_id(activity_id)
 
     async def delete(self, activity_id: UUID) -> bool:
+        """Delete an activity log by id."""
         activity = await self.get_by_id(activity_id)
         if activity is None:
             return False
@@ -88,12 +92,14 @@ class ActivityRepository:
         return True
 
     async def get_by_id(self, activity_id: UUID) -> ActivityLog | None:
+        """Return an activity log by id when present."""
         result = await self._session.execute(
             select(ActivityLog).where(ActivityLog.id == activity_id)
         )
         return result.scalar_one_or_none()
 
     async def get_by_user(self, user_id: UUID) -> list[ActivityLog]:
+        """Return all activity logs for a user, newest first."""
         result = await self._session.execute(
             select(ActivityLog)
             .where(ActivityLog.user_id == user_id)
@@ -107,6 +113,7 @@ class ActivityRepository:
         *,
         limit: int = 20,
     ) -> list[ActivityLog]:
+        """Return recent activity logs for a user, newest first."""
         result = await self._session.execute(
             select(ActivityLog)
             .where(ActivityLog.user_id == user_id)

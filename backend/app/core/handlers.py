@@ -50,6 +50,24 @@ def _base_error_content(
     return payload
 
 
+def _sanitize_validation_errors(errors: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Return validation errors without echoing user-provided input values."""
+    sanitized: list[dict[str, Any]] = []
+    for item in errors:
+        sanitized_item = {
+            key: value for key, value in item.items() if key not in {"input", "url"}
+        }
+        ctx = sanitized_item.get("ctx")
+        if isinstance(ctx, dict):
+            sanitized_item["ctx"] = {
+                key: value
+                for key, value in ctx.items()
+                if "secret" not in key.lower() and "token" not in key.lower()
+            }
+        sanitized.append(sanitized_item)
+    return sanitized
+
+
 def _app_exception_handler(request: Request, exc: AppException) -> JSONResponse:
     """Handle AppException and return a JSON response using its status_code."""
     content = _base_error_content(
@@ -72,7 +90,7 @@ def _validation_exception_handler(
         request=request,
         detail="Request validation error",
         code="RequestValidationError",
-        extras={"errors": exc.errors()},
+        extras={"errors": _sanitize_validation_errors(exc.errors())},
     )
     response = JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, content=content
@@ -91,7 +109,7 @@ def _generic_exception_handler(request: Request, exc: Exception) -> JSONResponse
         logger.exception(
             "Unhandled exception while processing request: %s %s",
             request.method,
-            request.url,
+            request.url.path,
         )
     except Exception:  # pragma: no cover - defensive fallback
         logging.exception("Unhandled exception while processing request")

@@ -4,10 +4,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 from app.config import settings
+from app.core.cache import RedisCache
 from app.core.exceptions import AppException, ResourceNotFoundException
+from app.core.logging import logger
 from app.dto.analytics import (
     ActivityDTO,
     AnalyticsDTO,
@@ -34,7 +37,6 @@ from app.schemas.dashboard import (
     DashboardSuggestionResponse,
     DashboardUserResponse,
 )
-from app.services.cache_service import CacheService
 
 
 @dataclass(slots=True)
@@ -59,7 +61,7 @@ class DashboardService:
         job_analysis_repository: JobAnalysisRepository | None = None,
         notification_repository: NotificationRepository | None = None,
         user_repository: UserRepository | None = None,
-        cache_service: CacheService | None = None,
+        cache_service: Any | None = None,
     ) -> None:
         self._dashboards = dashboard_repository
         self._analytics = analytics_repository
@@ -69,7 +71,11 @@ class DashboardService:
         self._job_analyses = job_analysis_repository
         self._notifications = notification_repository
         self._users = user_repository
-        self._cache = cache_service
+        self._cache = cache_service or RedisCache(
+            redis_url=settings.redis_url,
+            default_ttl_seconds=settings.cache_default_ttl_seconds,
+            enabled=settings.redis_enabled,
+        )
 
     async def get_dashboard_overview(
         self,
@@ -339,7 +345,7 @@ class DashboardService:
         activity_limit: int = 20,
     ) -> DashboardSummaryDTO:
         if self._cache is not None:
-            cached = await self._cache.get(
+            cached = await self._cache_get(
                 namespace=self._summary_namespace(user_id),
                 key=f"limit:{activity_limit}",
             )
@@ -376,11 +382,13 @@ class DashboardService:
             recent_activity=[self._to_activity_dto(item) for item in activities],
         )
         if self._cache is not None:
-            await self._cache.set(
+            await self._cache_set(
                 namespace=self._summary_namespace(user_id),
                 key=f"limit:{activity_limit}",
                 value=summary.model_dump(mode="json"),
-                ttl_seconds=settings.cache_dashboard_summary_ttl_seconds,
+                ttl_seconds=self._ttl_seconds(
+                    settings.cache_dashboard_summary_ttl_seconds
+                ),
             )
         return summary
 
@@ -404,7 +412,7 @@ class DashboardService:
 
     async def get_statistics(self, *, user_id: UUID) -> dict[str, float | int | None]:
         if self._cache is not None:
-            cached = await self._cache.get(
+            cached = await self._cache_get(
                 namespace=self._statistics_namespace(user_id),
                 key="current",
             )
@@ -436,11 +444,13 @@ class DashboardService:
             "total_tokens_used": summary.analytics.total_tokens_used,
         }
         if self._cache is not None:
-            await self._cache.set(
+            await self._cache_set(
                 namespace=self._statistics_namespace(user_id),
                 key="current",
                 value=result,
-                ttl_seconds=settings.cache_dashboard_statistics_ttl_seconds,
+                ttl_seconds=self._ttl_seconds(
+                    settings.cache_dashboard_statistics_ttl_seconds
+                ),
             )
         return result
 
@@ -451,7 +461,7 @@ class DashboardService:
         points: int = 12,
     ) -> list[dict[str, float | int | datetime | None]]:
         if self._cache is not None:
-            cached = await self._cache.get(
+            cached = await self._cache_get(
                 namespace=self._trends_namespace(user_id),
                 key=f"points:{points}",
             )
@@ -482,11 +492,13 @@ class DashboardService:
                 }
             )
         if self._cache is not None:
-            await self._cache.set(
+            await self._cache_set(
                 namespace=self._trends_namespace(user_id),
                 key=f"points:{points}",
                 value=trend_points,
-                ttl_seconds=settings.cache_dashboard_trends_ttl_seconds,
+                ttl_seconds=self._ttl_seconds(
+                    settings.cache_dashboard_trends_ttl_seconds
+                ),
             )
         return trend_points
 
@@ -496,7 +508,7 @@ class DashboardService:
         user_id: UUID,
     ) -> dict[str, float | int | UUID | datetime | None]:
         if self._cache is not None:
-            cached = await self._cache.get(
+            cached = await self._cache_get(
                 namespace=self._performance_namespace(user_id),
                 key="current",
             )
@@ -519,11 +531,13 @@ class DashboardService:
                 "updated_at": None,
             }
             if self._cache is not None:
-                await self._cache.set(
+                await self._cache_set(
                     namespace=self._performance_namespace(user_id),
                     key="current",
                     value=empty_result,
-                    ttl_seconds=settings.cache_dashboard_performance_ttl_seconds,
+                    ttl_seconds=self._ttl_seconds(
+                        settings.cache_dashboard_performance_ttl_seconds
+                    ),
                 )
             return empty_result
 
@@ -551,33 +565,105 @@ class DashboardService:
             "updated_at": analytics.updated_at,
         }
         if self._cache is not None:
-            await self._cache.set(
+            await self._cache_set(
                 namespace=self._performance_namespace(user_id),
                 key="current",
                 value=result,
-                ttl_seconds=settings.cache_dashboard_performance_ttl_seconds,
+                ttl_seconds=self._ttl_seconds(
+                    settings.cache_dashboard_performance_ttl_seconds
+                ),
             )
         return result
 
     async def _invalidate_dashboard_cache(self, user_id: UUID) -> None:
         if self._cache is None:
             return
-        await self._cache.invalidate(self._summary_namespace(user_id))
-        await self._cache.invalidate(self._statistics_namespace(user_id))
-        await self._cache.invalidate(self._trends_namespace(user_id))
-        await self._cache.invalidate(self._performance_namespace(user_id))
+        await self._cache_delete_pattern(self._summary_pattern(user_id))
+        await self._cache_delete_pattern(self._statistics_pattern(user_id))
+        await self._cache_delete_pattern(self._trends_pattern(user_id))
+        await self._cache_delete_pattern(self._performance_pattern(user_id))
 
     def _summary_namespace(self, user_id: UUID) -> str:
         return f"dashboard_summary:{user_id}"
 
+    def _summary_pattern(self, user_id: UUID) -> str:
+        return f"{self._summary_namespace(user_id)}:*"
+
     def _statistics_namespace(self, user_id: UUID) -> str:
         return f"dashboard_statistics:{user_id}"
+
+    def _statistics_pattern(self, user_id: UUID) -> str:
+        return f"{self._statistics_namespace(user_id)}:*"
 
     def _trends_namespace(self, user_id: UUID) -> str:
         return f"dashboard_trends:{user_id}"
 
+    def _trends_pattern(self, user_id: UUID) -> str:
+        return f"{self._trends_namespace(user_id)}:*"
+
     def _performance_namespace(self, user_id: UUID) -> str:
         return f"dashboard_performance:{user_id}"
+
+    def _performance_pattern(self, user_id: UUID) -> str:
+        return f"{self._performance_namespace(user_id)}:*"
+
+    def _cache_key(self, namespace: str, key: str) -> str:
+        return f"{namespace}:{key}"
+
+    def _ttl_seconds(self, configured_ttl_seconds: int) -> int:
+        return max(300, min(int(configured_ttl_seconds), 600))
+
+    async def _cache_get(self, *, namespace: str, key: str) -> Any | None:
+        if self._cache is None:
+            return None
+
+        cache_key = self._cache_key(namespace, key)
+        try:
+            cached = await self._cache.get(cache_key)
+        except TypeError:
+            cached = await self._cache.get(namespace=namespace, key=key)
+
+        if cached is None:
+            logger.debug("cache.miss key=%s", cache_key)
+            return None
+
+        logger.debug("cache.hit key=%s", cache_key)
+        return cached
+
+    async def _cache_set(
+        self,
+        *,
+        namespace: str,
+        key: str,
+        value: Any,
+        ttl_seconds: int,
+    ) -> None:
+        if self._cache is None:
+            return
+
+        cache_key = self._cache_key(namespace, key)
+        try:
+            await self._cache.set(cache_key, value, ttl_seconds)
+        except TypeError:
+            await self._cache.set(
+                namespace=namespace,
+                key=key,
+                value=value,
+                ttl_seconds=ttl_seconds,
+            )
+
+    async def _cache_delete_pattern(self, pattern: str) -> None:
+        if self._cache is None:
+            return
+
+        delete_pattern = getattr(self._cache, "delete_pattern", None)
+        if callable(delete_pattern):
+            await delete_pattern(pattern)
+            return
+
+        invalidate = getattr(self._cache, "invalidate", None)
+        if callable(invalidate):
+            await invalidate(pattern[:-1] if pattern.endswith("*") else pattern)
 
     def _round_average(self, value: float | int | None) -> float | None:
         if value is None:

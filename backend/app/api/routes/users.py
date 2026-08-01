@@ -9,7 +9,16 @@ from app.schemas.auth import CurrentUserResponse
 router = APIRouter(prefix="/users", tags=["Users"])
 
 
-@router.get("/me", response_model=CurrentUserResponse)
+@router.get(
+    "/me",
+    response_model=CurrentUserResponse,
+    summary="Get Current User",
+    description="Return profile details for the authenticated user.",
+    responses={
+        200: {"description": "Authenticated user profile returned."},
+        401: {"description": "Authentication required."},
+    },
+)
 async def me_endpoint(
     current_user: User = Depends(get_current_user),
 ) -> CurrentUserResponse:

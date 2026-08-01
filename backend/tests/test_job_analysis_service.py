@@ -452,6 +452,51 @@ def test_list_history_uses_optimized_repository_query() -> None:
     job_analysis_repository.list_by_user.assert_not_called()
 
 
+def test_get_analysis_returns_cached_response_without_repository_call() -> None:
+    user_id = uuid4()
+    analysis_id = uuid4()
+    now = datetime.now(UTC)
+    (
+        service,
+        job_analysis_repository,
+        _resume_repository,
+        _job_description_repository,
+        _chat_service,
+        _parser,
+        _extractor_factory,
+    ) = _build_service(
+        _StorageStub({"resume.txt": b"resume bytes"}),
+        LLMResponse(content="{}"),
+    )
+
+    service._cache_get = AsyncMock(
+        return_value={
+            "id": str(analysis_id),
+            "resume_id": str(uuid4()),
+            "job_description_id": str(uuid4()),
+            "analysis_status": JobAnalysisStatus.COMPLETED.value,
+            "match_score": 80,
+            "ats_match_score": 78,
+            "summary": "cached",
+            "strengths": [],
+            "weaknesses": [],
+            "recommendations": [],
+            "matched_skills": [],
+            "missing_skills": [],
+            "keyword_matches": [],
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat(),
+            "error_message": None,
+        }
+    )
+
+    result = asyncio.run(service.get_analysis(user_id=user_id, analysis_id=analysis_id))
+
+    assert result.id == analysis_id
+    assert result.summary == "cached"
+    job_analysis_repository.get_by_id.assert_not_awaited()
+
+
 def test_build_system_prompt_enforces_json_only_response() -> None:
     (
         service,

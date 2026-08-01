@@ -153,6 +153,28 @@ def test_login_successful_returns_tokens() -> None:
     )
 
 
+def test_login_uses_existing_user_role_when_issuing_access_token() -> None:
+    service, user_repository, password_service, jwt_service = _build_service()
+    request = LoginRequest(email="admin@example.com", password="StrongPass123!")
+    existing_user = SimpleNamespace(
+        id=uuid4(),
+        hashed_password="hashed-password",
+        role=UserRole.ADMIN.value,
+    )
+
+    user_repository.get_by_email.return_value = existing_user
+    password_service.verify_password.return_value = True
+    jwt_service.create_access_token.return_value = "access-token"
+    jwt_service.create_refresh_token.return_value = "refresh-token"
+
+    asyncio.run(service.login(request))
+
+    jwt_service.create_access_token.assert_called_once_with(
+        subject=str(existing_user.id),
+        role=UserRole.ADMIN.value,
+    )
+
+
 def test_login_unknown_email_raises_invalid_credentials() -> None:
     service, user_repository, password_service, jwt_service = _build_service()
     request = LoginRequest(email="john@example.com", password="StrongPass123!")

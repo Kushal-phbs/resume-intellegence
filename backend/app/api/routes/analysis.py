@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Path, status
 
 from app.config import settings
 from app.dependencies.analysis import get_analysis_service
@@ -33,10 +33,12 @@ _ANALYSIS_ERROR_RESPONSES = {
     "/{resume_id}",
     response_model=ResumeAnalysisResponse,
     status_code=status.HTTP_201_CREATED,
+    summary="Analyze Resume",
+    description="Run AI resume analysis for the latest version of the selected resume.",
     responses=_ANALYSIS_ERROR_RESPONSES,
 )
 async def analyze_resume_endpoint(
-    resume_id: UUID,
+    resume_id: UUID = Path(description="Resume identifier to analyze."),
     _: None = Depends(
         limit(
             bucket="resume_analysis",
@@ -53,10 +55,12 @@ async def analyze_resume_endpoint(
 @router.get(
     "/{resume_id}",
     response_model=ResumeAnalysisResponse,
+    summary="Get Latest Resume Analysis",
+    description="Return the most recent completed analysis for a resume.",
     responses=_ANALYSIS_ERROR_RESPONSES,
 )
 async def get_latest_analysis_endpoint(
-    resume_id: UUID,
+    resume_id: UUID = Path(description="Resume identifier."),
     current_user: User = Depends(get_current_user),
     analysis_service: ResumeAnalysisService = Depends(get_analysis_service),
 ) -> ResumeAnalysisResponse:
@@ -67,10 +71,12 @@ async def get_latest_analysis_endpoint(
 @router.get(
     "/{resume_id}/summary",
     response_model=ResumeAnalysisSummaryResponse,
+    summary="Get Resume Analysis Summary",
+    description="Return summary scores and insights for the latest resume analysis.",
     responses=_ANALYSIS_ERROR_RESPONSES,
 )
 async def get_analysis_summary_endpoint(
-    resume_id: UUID,
+    resume_id: UUID = Path(description="Resume identifier."),
     current_user: User = Depends(get_current_user),
     analysis_service: ResumeAnalysisService = Depends(get_analysis_service),
 ) -> ResumeAnalysisSummaryResponse:
@@ -81,10 +87,12 @@ async def get_analysis_summary_endpoint(
 @router.get(
     "/{resume_id}/skills",
     response_model=list[SkillResponse],
+    summary="Get Resume Analysis Skills",
+    description="Return extracted skills from the latest resume analysis.",
     responses=_ANALYSIS_ERROR_RESPONSES,
 )
 async def get_analysis_skills_endpoint(
-    resume_id: UUID,
+    resume_id: UUID = Path(description="Resume identifier."),
     current_user: User = Depends(get_current_user),
     analysis_service: ResumeAnalysisService = Depends(get_analysis_service),
 ) -> list[SkillResponse]:
@@ -95,10 +103,12 @@ async def get_analysis_skills_endpoint(
 @router.get(
     "/{resume_id}/keywords",
     response_model=list[KeywordResponse],
+    summary="Get Resume Analysis Keywords",
+    description="Return extracted keywords from the latest resume analysis.",
     responses=_ANALYSIS_ERROR_RESPONSES,
 )
 async def get_analysis_keywords_endpoint(
-    resume_id: UUID,
+    resume_id: UUID = Path(description="Resume identifier."),
     current_user: User = Depends(get_current_user),
     analysis_service: ResumeAnalysisService = Depends(get_analysis_service),
 ) -> list[KeywordResponse]:
@@ -109,10 +119,12 @@ async def get_analysis_keywords_endpoint(
 @router.get(
     "/{resume_id}/history",
     response_model=list[ResumeAnalysisSummaryResponse],
+    summary="List Resume Analysis History",
+    description="List historical resume analyses for a resume, newest first.",
     responses=_ANALYSIS_ERROR_RESPONSES,
 )
 async def get_analysis_history_endpoint(
-    resume_id: UUID,
+    resume_id: UUID = Path(description="Resume identifier."),
     current_user: User = Depends(get_current_user),
     analysis_service: ResumeAnalysisService = Depends(get_analysis_service),
 ) -> list[ResumeAnalysisSummaryResponse]:
@@ -123,13 +135,16 @@ async def get_analysis_history_endpoint(
 @router.delete(
     "/{analysis_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete Resume Analysis",
+    description="Delete a resume analysis record owned by the authenticated user.",
     responses={
+        204: {"description": "Analysis deleted."},
         401: {"description": "Authentication required"},
         404: {"description": "Analysis not found"},
     },
 )
 async def delete_analysis_endpoint(
-    analysis_id: UUID,
+    analysis_id: UUID = Path(description="Analysis identifier."),
     current_user: User = Depends(get_current_user),
     analysis_service: ResumeAnalysisService = Depends(get_analysis_service),
 ) -> None:

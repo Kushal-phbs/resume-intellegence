@@ -15,12 +15,12 @@ class SkillResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: UUID
-    analysis_id: UUID
-    skill_name: str
-    category: SkillCategory
-    created_at: datetime
-    updated_at: datetime
+    id: UUID = Field(description="Skill record identifier.")
+    analysis_id: UUID = Field(description="Parent analysis identifier.")
+    skill_name: str = Field(description="Extracted skill name.")
+    category: SkillCategory = Field(description="Skill category classification.")
+    created_at: datetime = Field(description="Skill record creation timestamp.")
+    updated_at: datetime = Field(description="Skill record update timestamp.")
 
 
 class KeywordResponse(BaseModel):
@@ -28,11 +28,11 @@ class KeywordResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: UUID
-    analysis_id: UUID
-    keyword: str
-    created_at: datetime
-    updated_at: datetime
+    id: UUID = Field(description="Keyword record identifier.")
+    analysis_id: UUID = Field(description="Parent analysis identifier.")
+    keyword: str = Field(description="Extracted keyword.")
+    created_at: datetime = Field(description="Keyword record creation timestamp.")
+    updated_at: datetime = Field(description="Keyword record update timestamp.")
 
 
 class ResumeAnalysisSummary(BaseModel):
@@ -40,20 +40,23 @@ class ResumeAnalysisSummary(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: UUID
-    resume_id: UUID
-    resume_version_id: UUID
-    analysis_status: AnalysisStatus
+    id: UUID = Field(description="Analysis identifier.")
+    resume_id: UUID = Field(description="Resume identifier.")
+    resume_version_id: UUID = Field(description="Resume version analyzed.")
+    analysis_status: AnalysisStatus = Field(description="Current analysis state.")
     resume_score: int | None = Field(default=None, ge=0, le=100)
     ats_score: int | None = Field(default=None, ge=0, le=100)
-    strengths: list[str]
-    weaknesses: list[str]
-    recommendations: list[str]
-    skill_count: int
-    keyword_count: int
-    created_at: datetime
-    updated_at: datetime
-    error_message: str | None = None
+    strengths: list[str] = Field(description="Detected resume strengths.")
+    weaknesses: list[str] = Field(description="Detected resume weaknesses.")
+    recommendations: list[str] = Field(description="Actionable improvement guidance.")
+    skill_count: int = Field(ge=0, description="Total extracted skills count.")
+    keyword_count: int = Field(ge=0, description="Total extracted keywords count.")
+    created_at: datetime = Field(description="Analysis creation timestamp.")
+    updated_at: datetime = Field(description="Last analysis update timestamp.")
+    error_message: str | None = Field(
+        default=None,
+        description="Failure reason when status is failed.",
+    )
 
 
 class ResumeAnalysisSummaryResponse(ResumeAnalysisSummary):
@@ -67,17 +70,20 @@ class ResumeAnalysisResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: UUID
-    resume_id: UUID
-    resume_version_id: UUID
-    analysis_status: AnalysisStatus
+    id: UUID = Field(description="Analysis identifier.")
+    resume_id: UUID = Field(description="Resume identifier.")
+    resume_version_id: UUID = Field(description="Resume version analyzed.")
+    analysis_status: AnalysisStatus = Field(description="Current analysis state.")
     resume_score: int | None = Field(default=None, ge=0, le=100)
     ats_score: int | None = Field(default=None, ge=0, le=100)
-    strengths: list[str]
-    weaknesses: list[str]
-    recommendations: list[str]
-    skills: list[SkillResponse]
-    keywords: list[KeywordResponse]
-    created_at: datetime
-    updated_at: datetime
-    error_message: str | None = None
+    strengths: list[str] = Field(description="Detected resume strengths.")
+    weaknesses: list[str] = Field(description="Detected resume weaknesses.")
+    recommendations: list[str] = Field(description="Actionable improvement guidance.")
+    skills: list[SkillResponse] = Field(description="Extracted skills.")
+    keywords: list[KeywordResponse] = Field(description="Extracted keywords.")
+    created_at: datetime = Field(description="Analysis creation timestamp.")
+    updated_at: datetime = Field(description="Last analysis update timestamp.")
+    error_message: str | None = Field(
+        default=None,
+        description="Failure reason when status is failed.",
+    )

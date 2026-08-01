@@ -68,7 +68,7 @@ class ResumeVersionRepository:
             version.recommendations_json = recommendations_json
 
         await self._session.flush()
-        return await self.get_by_id(version_id)
+        return version
 
     async def delete(self, version_id: UUID) -> bool:
         version = await self.get_by_id(version_id)

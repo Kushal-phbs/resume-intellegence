@@ -14,17 +14,25 @@ class NotificationResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: UUID
-    user_id: UUID
-    title: str
-    message: str
-    type: str
-    priority: Literal["low", "medium", "high", "critical"]
-    is_read: bool
-    action_url: str | None = None
-    metadata_json: dict[str, object] = Field(default_factory=dict)
-    created_at: datetime
-    updated_at: datetime
+    id: UUID = Field(description="Notification identifier.")
+    user_id: UUID = Field(description="Owner user identifier.")
+    title: str = Field(description="Short notification title.")
+    message: str = Field(description="Notification body text.")
+    type: str = Field(description="Notification type classifier.")
+    priority: Literal["low", "medium", "high", "critical"] = Field(
+        description="Priority used for sorting and urgency display."
+    )
+    is_read: bool = Field(description="Whether the notification was marked as read.")
+    action_url: str | None = Field(
+        default=None,
+        description="Optional URL for a related action in the client.",
+    )
+    metadata_json: dict[str, object] = Field(
+        default_factory=dict,
+        description="Arbitrary structured metadata for client behavior.",
+    )
+    created_at: datetime = Field(description="Notification creation timestamp.")
+    updated_at: datetime = Field(description="Last notification update timestamp.")
 
 
 class NotificationCreate(BaseModel):
@@ -41,7 +49,7 @@ class NotificationCreate(BaseModel):
 class NotificationUpdate(BaseModel):
     """Payload for notification updates."""
 
-    is_read: bool
+    is_read: bool = Field(description="Desired read-state for the notification.")
 
 
 class NotificationListResponse(BaseModel):

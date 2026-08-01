@@ -15,16 +15,26 @@ class ResumeVersionResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: UUID
-    resume_id: UUID
-    tailoring_session_id: UUID
-    professional_summary: str
-    experience_json: list[dict[str, object]]
-    skills_json: list[dict[str, object]]
-    ats_score: int = Field(ge=0, le=100)
-    recommendations_json: list[dict[str, object]]
-    created_at: datetime
-    updated_at: datetime
+    id: UUID = Field(description="Tailored resume version identifier.")
+    resume_id: UUID = Field(description="Source resume identifier.")
+    tailoring_session_id: UUID = Field(
+        description="Parent tailoring session identifier."
+    )
+    professional_summary: str = Field(
+        description="Generated professional summary section."
+    )
+    experience_json: list[dict[str, object]] = Field(
+        description="Structured tailored experience section entries."
+    )
+    skills_json: list[dict[str, object]] = Field(
+        description="Structured tailored skills section entries."
+    )
+    ats_score: int = Field(ge=0, le=100, description="Estimated ATS alignment score.")
+    recommendations_json: list[dict[str, object]] = Field(
+        description="Structured recommendations returned by tailoring pipeline."
+    )
+    created_at: datetime = Field(description="Record creation timestamp.")
+    updated_at: datetime = Field(description="Record update timestamp.")
 
 
 class CoverLetterResponse(BaseModel):
@@ -32,15 +42,18 @@ class CoverLetterResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: UUID | None = None
-    tailoring_session_id: UUID | None = None
-    title: str
-    greeting: str
-    introduction: str
-    body: str
-    closing: str
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    id: UUID | None = Field(default=None, description="Cover letter identifier.")
+    tailoring_session_id: UUID | None = Field(
+        default=None,
+        description="Parent tailoring session identifier.",
+    )
+    title: str = Field(description="Generated cover letter title.")
+    greeting: str = Field(description="Cover letter greeting line.")
+    introduction: str = Field(description="Cover letter introduction paragraph.")
+    body: str = Field(description="Cover letter body content.")
+    closing: str = Field(description="Cover letter closing statement.")
+    created_at: datetime | None = Field(default=None, description="Creation timestamp.")
+    updated_at: datetime | None = Field(default=None, description="Update timestamp.")
 
 
 class TailoringSessionResponse(BaseModel):
@@ -48,25 +61,29 @@ class TailoringSessionResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: UUID
-    resume_id: UUID
-    job_description_id: UUID
-    status: TailoringStatus
-    created_at: datetime
-    updated_at: datetime
+    id: UUID = Field(description="Tailoring session identifier.")
+    resume_id: UUID = Field(description="Source resume identifier.")
+    job_description_id: UUID = Field(description="Target job description identifier.")
+    status: TailoringStatus = Field(description="Current tailoring session status.")
+    created_at: datetime = Field(description="Session creation timestamp.")
+    updated_at: datetime = Field(description="Session update timestamp.")
 
 
 class TailoringSummaryResponse(BaseModel):
     """Summary response for create/session detail endpoints."""
 
-    session: TailoringSessionResponse
-    resume_version: ResumeVersionResponse
-    cover_letter: CoverLetterResponse
+    session: TailoringSessionResponse = Field(description="Tailoring session details.")
+    resume_version: ResumeVersionResponse = Field(
+        description="Generated tailored resume version."
+    )
+    cover_letter: CoverLetterResponse = Field(
+        description="Generated cover letter content."
+    )
 
 
 class ExportResponse(BaseModel):
     """Metadata response for exported artifact downloads."""
 
-    file_name: str
-    format: str
-    download_path: str
+    file_name: str = Field(description="Generated export filename.")
+    format: str = Field(description="Export format (md, docx, or pdf).")
+    download_path: str = Field(description="Relative download path for the export.")

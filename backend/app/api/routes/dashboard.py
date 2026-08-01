@@ -28,6 +28,11 @@ _DASHBOARD_ERROR_RESPONSES = {
     404: {"description": "Dashboard data not found"},
 }
 
+_DASHBOARD_RESPONSES = {
+    200: {"description": "Dashboard data returned successfully."},
+    **_DASHBOARD_ERROR_RESPONSES,
+}
+
 
 def _success_rate(successful_requests: int, total_requests: int) -> float:
     if total_requests == 0:
@@ -43,7 +48,7 @@ def _success_rate(successful_requests: int, total_requests: int) -> float:
         "Return complete dashboard information for the authenticated user "
         "in a single API response."
     ),
-    responses=_DASHBOARD_ERROR_RESPONSES,
+    responses=_DASHBOARD_RESPONSES,
 )
 async def get_dashboard_endpoint(
     current_user: User = Depends(get_current_user),
@@ -57,7 +62,7 @@ async def get_dashboard_endpoint(
     response_model=DashboardSummaryResponse,
     summary="Get Dashboard Summary",
     description="Return summarized dashboard metrics for KPI views.",
-    responses=_DASHBOARD_ERROR_RESPONSES,
+    responses=_DASHBOARD_RESPONSES,
 )
 async def get_dashboard_summary_endpoint(
     current_user: User = Depends(get_current_user),
@@ -81,7 +86,7 @@ async def get_dashboard_summary_endpoint(
     response_model=list[ActivityResponse],
     summary="Get Recent Activity",
     description="Return recent dashboard activity for the authenticated user.",
-    responses=_DASHBOARD_ERROR_RESPONSES,
+    responses=_DASHBOARD_RESPONSES,
 )
 async def get_dashboard_activity_endpoint(
     limit: int = Query(
@@ -108,7 +113,7 @@ async def get_dashboard_activity_endpoint(
         "Return aggregated statistics for the authenticated user, including "
         "totals, averages, and AI performance metrics."
     ),
-    responses=_DASHBOARD_ERROR_RESPONSES,
+    responses=_DASHBOARD_RESPONSES,
 )
 async def get_dashboard_statistics_endpoint(
     current_user: User = Depends(get_current_user),
@@ -123,7 +128,7 @@ async def get_dashboard_statistics_endpoint(
     response_model=DashboardTrendsResponse,
     summary="Get Dashboard Trends",
     description="Return chart-friendly time-series trend data for dashboard views.",
-    responses=_DASHBOARD_ERROR_RESPONSES,
+    responses=_DASHBOARD_RESPONSES,
 )
 async def get_dashboard_trends_endpoint(
     points: int = Query(
@@ -149,7 +154,7 @@ async def get_dashboard_trends_endpoint(
     response_model=AnalyticsResponse,
     summary="Get AI Performance Metrics",
     description="Return AI processing performance metrics for the user dashboard.",
-    responses=_DASHBOARD_ERROR_RESPONSES,
+    responses=_DASHBOARD_RESPONSES,
 )
 async def get_dashboard_performance_endpoint(
     current_user: User = Depends(get_current_user),
@@ -165,7 +170,11 @@ async def get_dashboard_performance_endpoint(
     status_code=status.HTTP_201_CREATED,
     summary="Refresh Dashboard Snapshot",
     description="Regenerate dashboard snapshot and return updated complete dashboard.",
-    responses=_DASHBOARD_ERROR_RESPONSES,
+    responses={
+        201: {"description": "Dashboard snapshot refreshed and returned."},
+        **_DASHBOARD_ERROR_RESPONSES,
+        429: {"description": "Refresh rate limit exceeded."},
+    },
 )
 async def refresh_dashboard_endpoint(
     _: None = Depends(

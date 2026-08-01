@@ -95,7 +95,7 @@ class JobAnalysisRepository:
         ]
 
         await self._session.flush()
-        return await self.get_by_id(analysis_id)
+        return analysis
 
     async def get_by_id(self, analysis_id: UUID) -> JobAnalysis | None:
         """Return a job analysis by UUID."""
@@ -163,9 +163,15 @@ class JobAnalysisRepository:
         )
         return list(result.scalars().all())
 
-    async def delete(self, analysis_id: UUID) -> bool:
+    async def delete(
+        self,
+        analysis_id: UUID,
+        *,
+        analysis: JobAnalysis | None = None,
+    ) -> bool:
         """Delete a stored job analysis row."""
-        analysis = await self.get_by_id(analysis_id)
+        if analysis is None:
+            analysis = await self.get_by_id(analysis_id)
         if analysis is None:
             return False
         await self._session.delete(analysis)

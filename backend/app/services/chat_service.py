@@ -314,7 +314,6 @@ class ChatService:
                         "content": f"Conversation summary: {summary}",
                     }
                 )
-                # TODO: Persist the summary on Conversation when a summary field exists.
 
         history.extend(
             {"role": item.role, "content": item.content} for item in rolling_messages
@@ -347,6 +346,7 @@ class ChatService:
         return summary.strip()
 
     def _chunk_text(self, text: str) -> list[str]:
+        """Split long text into fixed-size chunks for streaming fallback."""
         if not text:
             return []
         return [

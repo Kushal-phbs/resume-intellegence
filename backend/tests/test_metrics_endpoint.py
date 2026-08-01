@@ -33,6 +33,7 @@ class TestMetricsEndpoint:
         assert "# HELP ai_requests_total" in text
         assert "# TYPE ai_requests_total counter" in text
         assert "# HELP ai_request_duration_seconds" in text
+        assert 'ai_requests_total{provider="groq"} 0.0' in text
 
     def test_metrics_contains_db_metrics(self) -> None:
         response = client.get("/metrics")
@@ -46,6 +47,8 @@ class TestMetricsEndpoint:
         assert "# HELP cache_hits_total" in text
         assert "# TYPE cache_hits_total counter" in text
         assert "# HELP cache_misses_total" in text
+        assert 'cache_hits_total{namespace="global"} 0.0' in text
+        assert 'cache_misses_total{namespace="global"} 0.0' in text
 
     def test_metrics_contains_rate_limit_metrics(self) -> None:
         response = client.get("/metrics")

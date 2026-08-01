@@ -373,6 +373,92 @@ def test_send_message_prepends_summary_when_history_exceeds_40() -> None:
     assert main_history[-1]["content"] == "m44"
 
 
+def test_send_message_skips_summary_when_summary_generation_fails() -> None:
+    provider = AsyncMock()
+    ai_provider = AsyncMock()
+    ai_provider.generate_reply.side_effect = [
+        RuntimeError("summary failed"),
+        (
+            "assistant reply",
+            {
+                "input_tokens": 1,
+                "output_tokens": 2,
+                "total_tokens": 3,
+            },
+        ),
+    ]
+    conversation_repository = AsyncMock()
+    message_repository = AsyncMock()
+    resume_repository = AsyncMock()
+    resume_analysis_repository = AsyncMock()
+    job_analysis_repository = AsyncMock()
+    dashboard_repository = AsyncMock()
+
+    user_id = uuid4()
+    conversation_id = uuid4()
+    now = datetime.now(UTC)
+
+    conversation_repository.get.return_value = SimpleNamespace(
+        id=conversation_id,
+        user_id=user_id,
+        title="Interview Prep",
+        created_at=now,
+        updated_at=now,
+    )
+
+    message_repository.create.side_effect = [
+        SimpleNamespace(
+            id=uuid4(),
+            conversation_id=conversation_id,
+            role="user",
+            content="latest question",
+            token_count=1,
+            created_at=now,
+        ),
+        SimpleNamespace(
+            id=uuid4(),
+            conversation_id=conversation_id,
+            role="assistant",
+            content="assistant reply",
+            token_count=2,
+            created_at=now,
+        ),
+    ]
+
+    message_repository.list_messages.return_value = [
+        SimpleNamespace(role="user", content=f"m{i}") for i in range(45)
+    ]
+
+    resume_repository.list_by_user.return_value = []
+    job_analysis_repository.list_by_user.return_value = []
+    dashboard_repository.calculate_metrics.return_value = {}
+
+    service = ChatService(
+        provider,
+        ai_provider=ai_provider,
+        conversation_repository=conversation_repository,
+        message_repository=message_repository,
+        resume_repository=resume_repository,
+        resume_analysis_repository=resume_analysis_repository,
+        job_analysis_repository=job_analysis_repository,
+        dashboard_repository=dashboard_repository,
+    )
+
+    asyncio.run(
+        service.send_message(
+            user_id=user_id,
+            conversation_id=conversation_id,
+            content="latest question",
+        )
+    )
+
+    main_call = ai_provider.generate_reply.await_args_list[1].kwargs
+    main_history = main_call["history"]
+    assert main_history[0]["role"] == "system"
+    assert len(main_history) == 16
+    assert main_history[1]["content"] == "m30"
+
+
 def test_send_message_raises_for_non_owner_conversation() -> None:
     provider = AsyncMock()
     conversation_repository = AsyncMock()

@@ -6,8 +6,12 @@ Log messages include timestamp, level, logger name and message.
 
 from __future__ import annotations
 
+import json
 import logging
+import re
 from contextvars import ContextVar
+from datetime import UTC, datetime
+from typing import Any
 
 __all__ = [
     "setup_logging",
@@ -44,6 +48,42 @@ ai_processing_duration_ms_ctx: ContextVar[str] = ContextVar(
     default="0.0",
 )
 
+_SECRET_PATTERNS = [
+    re.compile(r"(?i)(authorization\s*[:=]\s*bearer\s+)[^\s,;]+"),
+    re.compile(r"(?i)(api[_-]?key\s*[:=]\s*)[^\s,;]+"),
+    re.compile(r"(?i)(token\s*[:=]\s*)[^\s,;]+"),
+    re.compile(r"(?i)(password\s*[:=]\s*)[^\s,;]+"),
+    re.compile(r"(?i)(secret\s*[:=]\s*)[^\s,;]+"),
+    re.compile(r"(?i)(x-api-key\s*[:=]\s*)[^\s,;]+"),
+    re.compile(r"(?i)(groq_api_key\s*[:=]\s*)[^\s,;]+"),
+]
+
+_DB_ERROR_MODULE_MARKERS = (
+    "sqlalchemy",
+    "asyncpg",
+    "psycopg",
+    "psycopg2",
+    "sqlite3",
+)
+
+
+def _classify_failure_domain(exc_info: Any) -> str:
+    if not exc_info:
+        return "-"
+
+    exc_type = exc_info[0]
+    if exc_type is None:
+        return "-"
+
+    module_name = getattr(exc_type, "__module__", "").lower()
+    if any(marker in module_name for marker in _DB_ERROR_MODULE_MARKERS):
+        return "database"
+
+    if "redis" in module_name:
+        return "cache"
+
+    return "application"
+
 
 class RequestIdFilter(logging.Filter):
     """Attach current request context values to log records."""
@@ -56,7 +96,66 @@ class RequestIdFilter(logging.Filter):
         record.status_code = status_code_ctx.get("-")
         record.execution_time_ms = execution_time_ms_ctx.get("-")
         record.ai_processing_duration_ms = ai_processing_duration_ms_ctx.get("0.0")
+        record.ai_latency_ms = ai_processing_duration_ms_ctx.get("0.0")
+        record.failure_domain = _classify_failure_domain(record.exc_info)
         return True
+
+
+class RedactionFilter(logging.Filter):
+    """Best-effort log redaction for common secret patterns."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        message = str(record.msg)
+        record.msg = self._redact_text(message)
+        if record.args:
+            if isinstance(record.args, dict):
+                record.args = {
+                    key: self._redact_text(str(value))
+                    for key, value in record.args.items()
+                }
+            elif isinstance(record.args, tuple):
+                record.args = tuple(
+                    self._redact_text(str(value)) for value in record.args
+                )
+            else:
+                record.args = (self._redact_text(str(record.args)),)
+        return True
+
+    def _redact_text(self, text: str) -> str:
+        redacted = text
+        for pattern in _SECRET_PATTERNS:
+            redacted = pattern.sub(r"\1[REDACTED]", redacted)
+        return redacted
+
+
+class JsonFormatter(logging.Formatter):
+    """Render logs as structured JSON payloads."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        message = record.getMessage()
+        payload: dict[str, Any] = {
+            "timestamp": datetime.now(UTC).isoformat(),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": message,
+            "request_id": getattr(record, "request_id", "-"),
+            "user_id": getattr(record, "user_id", "-"),
+            "method": getattr(record, "method", "-"),
+            "endpoint": getattr(record, "endpoint", "-"),
+            "status": getattr(record, "status_code", "-"),
+            "duration_ms": getattr(record, "execution_time_ms", "-"),
+            "ai_latency_ms": getattr(record, "ai_latency_ms", "0.0"),
+            "failure_domain": getattr(record, "failure_domain", "-"),
+        }
+
+        if record.exc_info:
+            exc_type, exc_value, _ = record.exc_info
+            payload["exception_type"] = (
+                exc_type.__name__ if exc_type is not None else "Exception"
+            )
+            payload["exception_message"] = str(exc_value)
+
+        return json.dumps(payload, ensure_ascii=True)
 
 
 def setup_logging(level: int | str = DEFAULT_LEVEL) -> None:
@@ -83,8 +182,9 @@ def setup_logging(level: int | str = DEFAULT_LEVEL) -> None:
 
     handler = logging.StreamHandler()
     handler.setLevel(level)
+    handler.addFilter(RedactionFilter())
     handler.addFilter(RequestIdFilter())
-    formatter = logging.Formatter(fmt=LOG_FORMAT, datefmt=DATE_FORMAT)
+    formatter = JsonFormatter(fmt=LOG_FORMAT, datefmt=DATE_FORMAT)
     handler.setFormatter(formatter)
 
     root.addHandler(handler)

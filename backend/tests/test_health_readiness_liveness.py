@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
+from app.api.routes import health
 from app.db.dependency import get_db_session
 from app.dependencies.cache import get_cache_service
 from app.main import app
@@ -23,6 +24,7 @@ def test_readiness_endpoint_returns_status_and_checks() -> None:
     assert "checks" in payload
     assert "postgresql" in payload["checks"]
     assert "redis" in payload["checks"]
+    assert "groq_config" in payload["checks"]
 
 
 class _DbSessionOK:
@@ -54,11 +56,14 @@ async def _override_db_fail():
 
 
 def test_readiness_returns_200_when_db_and_redis_ok() -> None:
+    original = health._is_groq_configured
+    health._is_groq_configured = lambda: True
     app.dependency_overrides[get_db_session] = _override_db_ok
     app.dependency_overrides[get_cache_service] = lambda: _CacheOK()
     try:
         response = TestClient(app).get("/ready")
     finally:
+        health._is_groq_configured = original
         app.dependency_overrides.clear()
 
     assert response.status_code == 200
@@ -66,11 +71,14 @@ def test_readiness_returns_200_when_db_and_redis_ok() -> None:
 
 
 def test_readiness_returns_503_when_db_fails() -> None:
+    original = health._is_groq_configured
+    health._is_groq_configured = lambda: True
     app.dependency_overrides[get_db_session] = _override_db_fail
     app.dependency_overrides[get_cache_service] = lambda: _CacheOK()
     try:
         response = TestClient(app).get("/ready")
     finally:
+        health._is_groq_configured = original
         app.dependency_overrides.clear()
 
     assert response.status_code == 503
@@ -80,14 +88,34 @@ def test_readiness_returns_503_when_db_fails() -> None:
 
 
 def test_readiness_returns_503_when_redis_fails() -> None:
+    original = health._is_groq_configured
+    health._is_groq_configured = lambda: True
     app.dependency_overrides[get_db_session] = _override_db_ok
     app.dependency_overrides[get_cache_service] = lambda: _CacheFail()
     try:
         response = TestClient(app).get("/ready")
     finally:
+        health._is_groq_configured = original
         app.dependency_overrides.clear()
 
     assert response.status_code == 503
     payload = response.json()
     assert payload["status"] == "not_ready"
     assert payload["checks"]["redis"] == "failed"
+
+
+def test_readiness_returns_503_when_groq_configuration_fails() -> None:
+    original = health._is_groq_configured
+    health._is_groq_configured = lambda: False
+    app.dependency_overrides[get_db_session] = _override_db_ok
+    app.dependency_overrides[get_cache_service] = lambda: _CacheOK()
+    try:
+        response = TestClient(app).get("/ready")
+    finally:
+        health._is_groq_configured = original
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 503
+    payload = response.json()
+    assert payload["status"] == "not_ready"
+    assert payload["checks"]["groq_config"] == "failed"

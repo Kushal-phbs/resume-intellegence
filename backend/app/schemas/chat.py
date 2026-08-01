@@ -21,13 +21,17 @@ MessageText = Annotated[
 class ConversationCreate(BaseModel):
     """Payload to create a conversation."""
 
-    title: TitleText = "New Conversation"
+    title: TitleText = Field(
+        default="New Conversation",
+        description="Optional conversation title shown in conversation lists.",
+        examples=["Interview Prep"],
+    )
 
 
 class ConversationUpdate(BaseModel):
     """Payload to update a conversation title."""
 
-    title: TitleText
+    title: TitleText = Field(description="New conversation title.")
 
 
 class ConversationResponse(BaseModel):
@@ -35,17 +39,19 @@ class ConversationResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: UUID
-    user_id: UUID
-    title: str
-    created_at: datetime
-    updated_at: datetime
+    id: UUID = Field(description="Conversation identifier.")
+    user_id: UUID = Field(description="Owner user identifier.")
+    title: str = Field(description="Conversation title.")
+    created_at: datetime = Field(description="Conversation creation timestamp.")
+    updated_at: datetime = Field(description="Last conversation update timestamp.")
 
 
 class MessageCreate(BaseModel):
     """Payload to send a user message."""
 
-    content: MessageText
+    content: MessageText = Field(
+        description="User message content sent to the assistant."
+    )
 
 
 class MessageResponse(BaseModel):
@@ -53,19 +59,34 @@ class MessageResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: UUID
-    conversation_id: UUID
-    role: Literal["user", "assistant", "system"]
-    content: str
-    token_count: int = Field(ge=0)
-    created_at: datetime
+    id: UUID = Field(description="Message identifier.")
+    conversation_id: UUID = Field(description="Conversation identifier.")
+    role: Literal["user", "assistant", "system"] = Field(
+        description="Message role in the conversation timeline."
+    )
+    content: str = Field(description="Message text content.")
+    token_count: int = Field(
+        ge=0,
+        description="Token usage attributed to this message when available.",
+    )
+    created_at: datetime = Field(description="Message creation timestamp.")
 
 
 class ChatResponse(BaseModel):
     """Response schema for chat send-message endpoint."""
 
-    conversation: ConversationResponse
-    user_message: MessageResponse
-    assistant_message: MessageResponse
-    token_usage: dict[str, int] = Field(default_factory=dict)
-    processing_time: float = Field(ge=0)
+    conversation: ConversationResponse = Field(
+        description="Conversation associated with this exchange."
+    )
+    user_message: MessageResponse = Field(description="Persisted user message.")
+    assistant_message: MessageResponse = Field(
+        description="Persisted assistant response message."
+    )
+    token_usage: dict[str, int] = Field(
+        default_factory=dict,
+        description="Aggregate token usage reported by the LLM provider.",
+    )
+    processing_time: float = Field(
+        ge=0,
+        description="Total processing time for this exchange in seconds.",
+    )

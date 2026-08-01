@@ -67,7 +67,7 @@ class CoverLetterRepository:
             letter.closing = closing
 
         await self._session.flush()
-        return await self.get_by_id(cover_letter_id)
+        return letter
 
     async def delete(self, cover_letter_id: UUID) -> bool:
         letter = await self.get_by_id(cover_letter_id)

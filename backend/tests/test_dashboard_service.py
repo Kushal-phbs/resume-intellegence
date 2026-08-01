@@ -354,3 +354,49 @@ def test_get_dashboard_summary_maps_recent_activity() -> None:
 
     assert summary.recent_activity[0].activity_type == ActivityType.EXPORT_GENERATED
     assert summary.recent_activity[0].metadata_json["format"] == "pdf"
+
+
+def test_get_dashboard_summary_uses_cache_when_available() -> None:
+    service, dashboards, analytics, activities = _build_service()
+    user_id = uuid4()
+    now = datetime.now(UTC)
+
+    cached_summary = {
+        "snapshot": {
+            "id": str(uuid4()),
+            "user_id": str(user_id),
+            "total_resumes": 1,
+            "total_resume_analyses": 2,
+            "total_job_analyses": 3,
+            "total_tailoring_sessions": 0,
+            "average_resume_score": 80.0,
+            "average_job_match_score": 75.0,
+            "average_tailoring_score": None,
+            "generated_cover_letters": 0,
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat(),
+        },
+        "analytics": {
+            "id": str(uuid4()),
+            "user_id": str(user_id),
+            "total_ai_requests": 5,
+            "total_tokens_used": 100,
+            "successful_requests": 4,
+            "failed_requests": 1,
+            "average_processing_time_ms": 123.4,
+            "last_activity_at": now.isoformat(),
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat(),
+        },
+        "recent_activity": [],
+    }
+
+    service._cache_get = AsyncMock(return_value=cached_summary)
+
+    summary = asyncio.run(service.get_dashboard_summary(user_id=user_id))
+
+    assert summary.snapshot.total_resumes == 1
+    assert summary.analytics.total_ai_requests == 5
+    dashboards.latest_snapshot.assert_not_awaited()
+    analytics.get_by_user.assert_not_awaited()
+    activities.list_recent_activity.assert_not_awaited()

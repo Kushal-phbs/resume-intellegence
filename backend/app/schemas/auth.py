@@ -14,30 +14,56 @@ from app.enums import TokenType, UserRole
 class RegisterRequest(BaseModel):
     """Payload for account registration."""
 
-    email: EmailStr
-    password: str = Field(min_length=8, max_length=128)
-    full_name: str = Field(min_length=1, max_length=255)
+    email: EmailStr = Field(description="User email address used for login.")
+    password: str = Field(
+        min_length=8,
+        max_length=128,
+        description="Plaintext password used to create the account.",
+        examples=["Str0ngPassword!"],
+    )
+    full_name: str = Field(
+        min_length=1,
+        max_length=255,
+        description="Display name for the user profile.",
+        examples=["Alex Morgan"],
+    )
 
 
 class LoginRequest(BaseModel):
     """Payload for login requests."""
 
-    email: EmailStr
-    password: str = Field(min_length=8, max_length=128)
+    email: EmailStr = Field(description="Registered account email address.")
+    password: str = Field(
+        min_length=8,
+        max_length=128,
+        description="Account password.",
+    )
 
 
 class RefreshTokenRequest(BaseModel):
     """Payload for requesting a new access token from a refresh token."""
 
-    refresh_token: str = Field(min_length=1)
+    refresh_token: str = Field(
+        min_length=1,
+        description="Valid refresh token issued by the login or refresh endpoint.",
+    )
 
 
 class TokenResponse(BaseModel):
     """Standard JWT token response payload."""
 
-    access_token: str = Field(min_length=1)
-    refresh_token: str = Field(min_length=1)
-    token_type: Literal["bearer"] = "bearer"
+    access_token: str = Field(
+        min_length=1,
+        description="JWT access token used to authorize API requests.",
+    )
+    refresh_token: str = Field(
+        min_length=1,
+        description="JWT refresh token used to request new token pairs.",
+    )
+    token_type: Literal["bearer"] = Field(
+        default="bearer",
+        description="Token type for Authorization header usage.",
+    )
 
 
 class TokenPayload(BaseModel):
@@ -45,11 +71,14 @@ class TokenPayload(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    sub: str
-    type: TokenType
-    iat: int
-    exp: int
-    role: UserRole | None = None
+    sub: str = Field(description="Subject claim containing the user identifier.")
+    type: TokenType = Field(description="Token type claim (access or refresh).")
+    iat: int = Field(description="Issued-at timestamp in Unix epoch seconds.")
+    exp: int = Field(description="Expiration timestamp in Unix epoch seconds.")
+    role: UserRole | None = Field(
+        default=None,
+        description="Optional role claim embedded in access tokens.",
+    )
 
     @model_validator(mode="after")
     def validate_timestamps(self) -> "TokenPayload":
@@ -64,10 +93,10 @@ class CurrentUserResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: UUID
-    email: str
-    full_name: str
-    role: UserRole
-    is_active: bool
-    created_at: datetime
-    updated_at: datetime
+    id: UUID = Field(description="User identifier.")
+    email: str = Field(description="User email address.")
+    full_name: str = Field(description="User display name.")
+    role: UserRole = Field(description="Current authorization role.")
+    is_active: bool = Field(description="Whether the account is active.")
+    created_at: datetime = Field(description="Account creation timestamp.")
+    updated_at: datetime = Field(description="Last account update timestamp.")

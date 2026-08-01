@@ -25,6 +25,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
     """Middleware that generates and propagates a request correlation ID."""
 
     async def dispatch(self, request: Request, call_next) -> Response:
+        """Assign a request id to context/state and include it in response headers."""
         request_id = str(uuid.uuid4())
         request.state.request_id = request_id
 
@@ -43,9 +44,12 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Attach baseline hardening headers to every HTTP response."""
 
     async def dispatch(self, request: Request, call_next) -> Response:
+        """Apply default security headers to outgoing responses."""
         response = await call_next(request)
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
+        response.headers.setdefault("Cross-Origin-Resource-Policy", "same-origin")
         response.headers.setdefault(
             "Referrer-Policy",
             "strict-origin-when-cross-origin",
@@ -54,6 +58,16 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "Permissions-Policy",
             "geolocation=(), microphone=(), camera=()",
         )
+        response.headers.setdefault(
+            "Content-Security-Policy",
+            "default-src 'self'; frame-ancestors 'none'; base-uri 'self'; "
+            "object-src 'none'",
+        )
+        response.headers.setdefault(
+            "Strict-Transport-Security",
+            "max-age=31536000; includeSubDomains",
+        )
+        response.headers.setdefault("Cache-Control", "no-store")
         response.headers.setdefault("X-XSS-Protection", "1; mode=block")
         return response
 
@@ -62,6 +76,7 @@ class ObservabilityMiddleware(BaseHTTPMiddleware):
     """Capture request timing, emit structured logs, and record Prometheus metrics."""
 
     async def dispatch(self, request: Request, call_next) -> Response:
+        """Capture request telemetry and attach processing-time headers."""
         method_token = method_ctx.set(request.method)
         endpoint_token = endpoint_ctx.set(request.url.path)
         status_token = status_code_ctx.set("-")
