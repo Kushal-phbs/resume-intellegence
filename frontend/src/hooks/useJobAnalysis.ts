@@ -1,6 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { jobAnalysisApi } from "@/api/jobAnalysis";
 import { queryKeys } from "@/constants/queryKeys";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export function useJobAnalysisHistory() {
   return useQuery({ queryKey: queryKeys.jobAnalysisHistory, queryFn: jobAnalysisApi.history });
@@ -19,6 +19,9 @@ export function useRunJobAnalysis() {
   return useMutation({
     mutationFn: ({ resumeId, jobId }: { resumeId: string; jobId: string }) =>
       jobAnalysisApi.run(resumeId, jobId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.jobAnalysisHistory }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.jobAnalysisHistory });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
+    },
   });
 }

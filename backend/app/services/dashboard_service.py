@@ -932,7 +932,7 @@ class DashboardService:
                     key="close_skill_gaps",
                     title="Address missing skills",
                     description="Update your resume to cover missing requirements.",
-                    route="/job-analysis/history",
+                    route="/job-analysis",
                     priority=3,
                 )
             )
@@ -943,7 +943,7 @@ class DashboardService:
                     key="review_notifications",
                     title="Review unread activity",
                     description="Check recent dashboard updates and events.",
-                    route="/dashboard/activity",
+                    route="/",
                     priority=4,
                 )
             )

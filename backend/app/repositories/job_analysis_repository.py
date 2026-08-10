@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -93,6 +94,12 @@ class JobAnalysisRepository:
             KeywordMatch(job_analysis_id=analysis_id, keyword=keyword)
             for keyword in result.keyword_matches
         ]
+
+        # Set updated_at in Python so onupdate=func.now() does not fire and
+        # expire the attribute during flush. This keeps relationship
+        # collections (matched_skills, missing_skills, keyword_matches)
+        # available for synchronous access after flush.
+        analysis.updated_at = datetime.now(UTC)
 
         await self._session.flush()
         return analysis

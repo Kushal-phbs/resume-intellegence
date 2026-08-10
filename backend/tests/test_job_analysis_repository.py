@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
@@ -90,6 +91,9 @@ def test_update_persists_typed_result() -> None:
     assert analysis.missing_skills[0].skill_name == "Kubernetes"
     assert analysis.keyword_matches[0].keyword == "REST APIs"
     session.flush.assert_awaited_once()
+    # updated_at should be set in Python before flush, not via refresh()
+    assert isinstance(analysis.updated_at, datetime)
+    session.refresh.assert_not_called()
 
 
 def test_get_by_id_returns_analysis() -> None:

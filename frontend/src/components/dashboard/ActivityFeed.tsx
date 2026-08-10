@@ -1,8 +1,8 @@
-import { Bell, FileText, Briefcase, Wand2, Mail, Download, LogIn } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/common/EmptyState";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatRelative } from "@/lib/utils";
 import type { DashboardNotificationResponse } from "@/types/dashboard";
+import { Bell, Briefcase, Download, FileText, LogIn, Mail, Wand2 } from "lucide-react";
 
 const ACTIVITY_ICON: Record<string, typeof FileText> = {
   resume_uploaded: FileText,
@@ -22,7 +22,7 @@ const ACTIVITY_ICON: Record<string, typeof FileText> = {
  */
 export function ActivityFeed({ items }: { items: DashboardNotificationResponse[] }) {
   return (
-    <Card>
+    <Card id="activity-feed">
       <CardHeader>
         <CardTitle>Activity Feed</CardTitle>
       </CardHeader>

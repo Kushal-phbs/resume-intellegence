@@ -1,30 +1,28 @@
-import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { Link } from "react-router-dom";
-import { Briefcase, Play, Info, ChevronRight } from "lucide-react";
-import { useJobAnalysisHistory, useRunJobAnalysis } from "@/hooks/useJobAnalysis";
-import { useResumes } from "@/hooks/useResumes";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getApiErrorMessage } from "@/api/client";
+import { JobAnalysisResultView, STATUS_VARIANT } from "@/components/analysis/JobAnalysisResultView";
+import { EmptyState } from "@/components/common/EmptyState";
+import { ErrorMessage } from "@/components/common/ErrorMessage";
+import { ErrorState } from "@/components/common/ErrorState";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { EmptyState } from "@/components/common/EmptyState";
-import { ErrorState } from "@/components/common/ErrorState";
-import { ErrorMessage } from "@/components/common/ErrorMessage";
-import { getApiErrorMessage } from "@/api/client";
-import { formatDate } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
+import { useJobAnalysisHistory, useRunJobAnalysis } from "@/hooks/useJobAnalysis";
+import { useResumes } from "@/hooks/useResumes";
+import { formatDate } from "@/lib/utils";
+import type { JobAnalysisResponse } from "@/types/jobAnalysis";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  Briefcase, CheckCircle2, ChevronRight, Info, Play, X,
+} from "lucide-react";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { Link } from "react-router-dom";
+import { z } from "zod";
 
-const STATUS_VARIANT: Record<string, "default" | "success" | "destructive" | "muted"> = {
-  pending: "muted",
-  processing: "default",
-  completed: "success",
-  failed: "destructive",
-};
 
 const uuidSchema = z.string().uuid("Must be a valid UUID");
 const schema = z.object({
@@ -38,6 +36,7 @@ export function JobAnalysisPage() {
   const { data: resumes } = useResumes();
   const runJobAnalysis = useRunJobAnalysis();
   const [showForm, setShowForm] = useState(false);
+  const [currentResult, setCurrentResult] = useState<JobAnalysisResponse | null>(null);
 
   const {
     register,
@@ -46,7 +45,10 @@ export function JobAnalysisPage() {
   } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
   const onSubmit = (values: FormValues) =>
-    runJobAnalysis.mutate({ resumeId: values.resume_id, jobId: values.job_id });
+    runJobAnalysis.mutate(
+      { resumeId: values.resume_id, jobId: values.job_id },
+      { onSuccess: (data) => setCurrentResult(data) }
+    );
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -63,7 +65,27 @@ export function JobAnalysisPage() {
         </Button>
       </div>
 
-      {showForm && (
+      {currentResult && (
+        <Card>
+          <CardContent className="p-5">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-success" />
+                  <span className="font-semibold">Analysis complete</span>
+                  <Badge variant="success">{currentResult.analysis_status}</Badge>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => setCurrentResult(null)} aria-label="Close result">
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <JobAnalysisResultView data={currentResult} />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {showForm && !currentResult && (
         <Card>
           <CardHeader><CardTitle>Run Job Analysis</CardTitle></CardHeader>
           <CardContent className="space-y-4">
