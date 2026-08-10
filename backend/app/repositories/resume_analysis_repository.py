@@ -113,6 +113,12 @@ class ResumeAnalysisRepository:
         ]
 
         await self._session.flush()
+        # Load DB-managed timestamps eagerly to avoid implicit lazy loads
+        # when the service reads created_at/updated_at for response models.
+        await self._session.refresh(
+            analysis,
+            attribute_names=["created_at", "updated_at"],
+        )
         return analysis
 
     async def get_latest(self, resume_id: UUID) -> ResumeAnalysis | None:

@@ -52,6 +52,7 @@ class TailoringSessionRepository:
             )
 
         await self._session.flush()
+        await self._session.refresh(session)
         return session
 
     async def delete(
@@ -74,8 +75,6 @@ class TailoringSessionRepository:
             .options(
                 selectinload(TailoringSession.resume),
                 selectinload(TailoringSession.job_description),
-                selectinload(TailoringSession.resume_version),
-                selectinload(TailoringSession.cover_letter),
             )
             .where(TailoringSession.id == session_id)
         )

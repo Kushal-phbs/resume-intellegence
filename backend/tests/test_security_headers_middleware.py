@@ -14,7 +14,7 @@ def test_security_headers_middleware_adds_expected_headers() -> None:
     async def ping() -> dict[str, str]:
         return {"status": "ok"}
 
-    response = TestClient(app).get("/ping")
+    response = TestClient(app, base_url="https://testserver").get("/ping")
 
     assert response.status_code == 200
     assert response.headers["X-Content-Type-Options"] == "nosniff"
@@ -24,7 +24,9 @@ def test_security_headers_middleware_adds_expected_headers() -> None:
     assert response.headers["Referrer-Policy"] == "strict-origin-when-cross-origin"
     assert "Permissions-Policy" in response.headers
     assert "Content-Security-Policy" in response.headers
-    assert response.headers["Strict-Transport-Security"].startswith("max-age=")
+    assert response.headers["Strict-Transport-Security"] == (
+        "max-age=31536000; includeSubDomains"
+    )
     assert response.headers["Cache-Control"] == "no-store"
     assert response.headers["X-XSS-Protection"] == "1; mode=block"
 

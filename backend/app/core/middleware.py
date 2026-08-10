@@ -46,6 +46,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
         """Apply default security headers to outgoing responses."""
         response = await call_next(request)
+
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
@@ -58,17 +59,28 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "Permissions-Policy",
             "geolocation=(), microphone=(), camera=()",
         )
-        response.headers.setdefault(
-            "Content-Security-Policy",
-            "default-src 'self'; frame-ancestors 'none'; base-uri 'self'; "
-            "object-src 'none'",
-        )
-        response.headers.setdefault(
-            "Strict-Transport-Security",
-            "max-age=31536000; includeSubDomains",
-        )
         response.headers.setdefault("Cache-Control", "no-store")
         response.headers.setdefault("X-XSS-Protection", "1; mode=block")
+
+        # Only send HSTS over HTTPS
+        if request.url.scheme == "https":
+            response.headers.setdefault(
+                "Strict-Transport-Security",
+                "max-age=31536000; includeSubDomains",
+            )
+
+        # Skip CSP for FastAPI documentation pages
+        if not request.url.path.startswith(("/docs", "/redoc", "/openapi.json")):
+            response.headers.setdefault(
+                "Content-Security-Policy",
+                (
+                    "default-src 'self'; "
+                    "frame-ancestors 'none'; "
+                    "base-uri 'self'; "
+                    "object-src 'none';"
+                ),
+            )
+
         return response
 
 

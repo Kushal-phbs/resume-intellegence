@@ -77,11 +77,11 @@ class GroqProvider(BaseLLMProvider):
                     latency_ms = (monotonic() - start_time) * 1000
                     logger.error(
                         "LLM request failed provider=%s model=%s status=failure "
-                        "retry_count=%s latency_ms=%.1f",
+                        "retry_count=%d latency_ms=%.1f",
                         self._config.provider,
                         self._config.model,
-                        attempt - 1,
-                        latency_ms,
+                        int(attempt - 1),
+                        float(latency_ms),
                     )
                     raise
 
@@ -104,11 +104,11 @@ class GroqProvider(BaseLLMProvider):
         retry_count = attempt - 1
         logger.info(
             "LLM request finished provider=%s model=%s status=success "
-            "retry_count=%s latency_ms=%.1f",
+            "retry_count=%d latency_ms=%.1f",
             self._config.provider,
             self._config.model,
-            retry_count,
-            latency_ms,
+            int(retry_count),
+            float(latency_ms),
         )
 
         choice = completion.choices[0]

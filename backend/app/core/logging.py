@@ -110,15 +110,12 @@ class RedactionFilter(logging.Filter):
         if record.args:
             if isinstance(record.args, dict):
                 record.args = {
-                    key: self._redact_text(str(value))
-                    for key, value in record.args.items()
+                    key: self._redact_value(value) for key, value in record.args.items()
                 }
             elif isinstance(record.args, tuple):
-                record.args = tuple(
-                    self._redact_text(str(value)) for value in record.args
-                )
+                record.args = tuple(self._redact_value(value) for value in record.args)
             else:
-                record.args = (self._redact_text(str(record.args)),)
+                record.args = (self._redact_value(record.args),)
         return True
 
     def _redact_text(self, text: str) -> str:
@@ -126,6 +123,11 @@ class RedactionFilter(logging.Filter):
         for pattern in _SECRET_PATTERNS:
             redacted = pattern.sub(r"\1[REDACTED]", redacted)
         return redacted
+
+    def _redact_value(self, value: Any) -> Any:
+        if isinstance(value, str):
+            return self._redact_text(value)
+        return value
 
 
 class JsonFormatter(logging.Formatter):

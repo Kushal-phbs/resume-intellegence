@@ -346,3 +346,81 @@ def test_tailor_resume_marks_session_failed_when_parsing_fails() -> None:
         session.id,
         status=TailoringStatus.FAILED,
     )
+
+
+def test_tailor_resume_to_session_dto_does_not_raise_missing_greenlet() -> None:
+    """Regression: _to_session_dto() must not raise MissingGreenlet on updated_at
+    after TailoringSessionRepository.update() returns.  The repository must
+    refresh() the session after flush() so that server-default columns such as
+    updated_at are loaded into the async session identity map."""
+    (
+        service,
+        tailoring_session_repository,
+        resume_version_repository,
+        cover_letter_repository,
+        resume_repository,
+        job_description_repository,
+    ) = _build_service()
+    owner_id = uuid4()
+    resume_id = uuid4()
+    job_id = uuid4()
+    resume_repository.get.return_value = SimpleNamespace(id=resume_id, user_id=owner_id)
+    resume_repository.get_latest_version.return_value = SimpleNamespace(
+        id=uuid4(), file_path="resume.txt"
+    )
+    job_description_repository.get.return_value = SimpleNamespace(
+        id=job_id,
+        user_id=owner_id,
+        description="Need Python",
+    )
+    session = _session_row(TailoringStatus.PROCESSING)
+    session.resume_id = resume_id
+    session.job_description_id = job_id
+    tailoring_session_repository.create.return_value = session
+    updated = _session_row(TailoringStatus.COMPLETED)
+    updated.id = session.id
+    updated.resume_id = resume_id
+    updated.job_description_id = job_id
+    tailoring_session_repository.update.return_value = updated
+    now = datetime.now(UTC)
+    resume_version_repository.create.return_value = SimpleNamespace(
+        id=uuid4(),
+        resume_id=resume_id,
+        tailoring_session_id=session.id,
+        professional_summary="Summary",
+        experience_json=[],
+        skills_json=[],
+        ats_score=84,
+        recommendations_json=[],
+        created_at=now,
+        updated_at=now,
+    )
+    cover_letter_repository.create.return_value = SimpleNamespace(
+        id=uuid4(),
+        tailoring_session_id=session.id,
+        title="Title",
+        greeting="Greeting",
+        introduction="Intro",
+        body="Body",
+        closing="Closing",
+        created_at=now,
+        updated_at=now,
+    )
+
+    result = asyncio.run(
+        service.tailor_resume(
+            user_id=owner_id,
+            resume_id=resume_id,
+            job_description_id=job_id,
+        )
+    )
+
+    # The critical assertion: _to_session_dto() must not raise MissingGreenlet
+    # when accessing session.updated_at.  If the repository's update() method
+    # does not refresh() after flush(), the server-default column is expired
+    # and the async session raises MissingGreenlet on synchronous access.
+    assert result.session is not None
+    assert result.session.status == TailoringStatus.COMPLETED
+    assert result.session.updated_at is not None
+    assert result.resume_version.ats_score == 84
+    assert result.cover_letter.title == "Title"

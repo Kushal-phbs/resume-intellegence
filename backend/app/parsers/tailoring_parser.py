@@ -8,6 +8,7 @@ import re
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from app.core.exceptions import ExternalServiceException
+from app.core.logging import logger
 from app.dto.tailoring import CoverLetterDTO, ResumeTailoringDTO, ResumeVersionDTO
 
 
@@ -56,6 +57,9 @@ class TailoringParser:
         """Parse and validate a raw LLM response string."""
         cleaned = self._prepare_content(content)
 
+        # --- DEBUG LOGGING (safe, no PII / secrets) ---
+        _log_response_type_and_preview(content, cleaned)
+
         try:
             payload = json.loads(cleaned)
         except json.JSONDecodeError as exc:
@@ -69,9 +73,18 @@ class TailoringParser:
                     "Invalid LLM response format"
                 ) from inner_exc
 
+        payload = self._normalize_json_arrays(payload)
+
         try:
             parsed = _ParsedTailoringPayload.model_validate(payload)
         except ValidationError as exc:
+            logger.error(
+                "TailoringParser validation failed: errors=%s payload_keys=%s",
+                exc.errors(),
+                list(payload.keys())
+                if isinstance(payload, dict)
+                else type(payload).__name__,
+            )
             raise ExternalServiceException("Invalid LLM response payload") from exc
 
         resume_version = ResumeVersionDTO(
@@ -99,41 +112,76 @@ class TailoringParser:
 
     def _prepare_content(self, content: str) -> str:
         stripped = content.strip()
+        # 1. Try to extract content from a fenced code block (```json ... ```).
         fenced = self._FENCED_BLOCK_RE.search(stripped)
         if fenced is not None:
             return fenced.group(1).strip()
-        return self._strip_code_fences(stripped)
+        # 2. Try to strip fences that span the entire string.
+        no_fences = self._strip_code_fences(stripped)
+        if no_fences != stripped:
+            return no_fences
+        # 3. If the result is still not valid JSON, try extracting the first
+        #    top-level JSON object from the text (handles prose-wrapped output).
+        candidate = self._extract_json_object(no_fences)
+        if candidate is not None:
+            return candidate
+        return no_fences
+
+    @staticmethod
+    def _normalize_json_arrays(payload: object) -> dict[str, object]:
+        """Normalize JSON array fields that the LLM may return as lists of strings
+        instead of lists of dicts.  Each string item is wrapped into a dict with
+        a single key ``"value"`` so that downstream ``list[dict[str, object]]``
+        validation passes.  Non-dict payloads are returned as-is."""
+        if not isinstance(payload, dict):
+            return payload  # type: ignore[return-value]
+        _ARRAY_FIELDS = {"experience_json", "skills_json", "recommendations_json"}
+        for field in _ARRAY_FIELDS:
+            items = payload.get(field)
+            if not isinstance(items, list):
+                continue
+            normalized: list[dict[str, object]] = []
+            for item in items:
+                if isinstance(item, dict):
+                    normalized.append(item)
+                elif isinstance(item, str):
+                    normalized.append({"value": item})
+                else:
+                    # drop non-dict, non-string items (e.g. None, numbers)
+                    continue
+            payload[field] = normalized
+        return payload
 
     def _extract_json_object(self, text: str) -> str | None:
+        """Extract the first complete JSON object from *text*.
+
+        Uses Python's built-in ``json.JSONDecoder.raw_decode`` which correctly
+        handles all JSON edge cases (nested objects, arrays, escaped quotes,
+        braces inside strings, etc.) and never silently truncates malformed
+        JSON.
+        """
         start = text.find("{")
         if start == -1:
             return None
+        try:
+            decoder = json.JSONDecoder()
+            obj, end = decoder.raw_decode(text, start)
+            return text[start:end]
+        except json.JSONDecodeError:
+            return None
 
-        depth = 0
-        in_string = False
-        escape = False
 
-        for index in range(start, len(text)):
-            char = text[index]
-
-            if in_string:
-                if escape:
-                    escape = False
-                elif char == "\\":
-                    escape = True
-                elif char == '"':
-                    in_string = False
-                continue
-
-            if char == '"':
-                in_string = True
-                continue
-
-            if char == "{":
-                depth += 1
-            elif char == "}":
-                depth -= 1
-                if depth == 0:
-                    return text[start : index + 1]
-
-        return None
+def _log_response_type_and_preview(raw: str, cleaned: str) -> None:
+    """Log the response type and a safe preview (max 1000 chars, no PII)."""
+    has_fences = bool(TailoringParser._FENCED_BLOCK_RE.search(raw))
+    has_json_prefix = raw.strip().startswith("{")
+    preview = cleaned[:1000]
+    logger.debug(
+        "TailoringParser input: has_fences=%s has_json_prefix=%s "
+        "raw_len=%d cleaned_len=%d preview=%.1000s",
+        has_fences,
+        has_json_prefix,
+        len(raw),
+        len(cleaned),
+        preview,
+    )
