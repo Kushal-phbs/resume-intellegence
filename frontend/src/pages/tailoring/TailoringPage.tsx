@@ -189,17 +189,15 @@ function TailoringResult({
             <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Export Resume</p>
             <div className="flex flex-wrap gap-2">
               {FORMATS.map((fmt) => (
-                <a
+                <Button
                   key={fmt}
-                  href={tailoringApi.exportResumeUrl(resume_version.id, fmt)}
-                  target="_blank"
-                  rel="noreferrer"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => tailoringApi.exportResume(resume_version.id, fmt)}
                 >
-                  <Button variant="outline" size="sm">
-                    <Download className="h-3.5 w-3.5" />
-                    .{fmt.toUpperCase()}
-                  </Button>
-                </a>
+                  <Download className="h-3.5 w-3.5" />
+                  .{fmt.toUpperCase()}
+                </Button>
               ))}
             </div>
           </div>
@@ -218,26 +216,22 @@ function TailoringResult({
             <p className="text-sm">{cover_letter.body}</p>
             <p className="text-sm">{cover_letter.closing}</p>
 
-            {cover_letter.id && (
-              <div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Export Cover Letter</p>
-                <div className="flex flex-wrap gap-2">
-                  {FORMATS.map((fmt) => (
-                    <a
-                      key={fmt}
-                      href={tailoringApi.exportCoverLetterUrl(cover_letter.id as string, fmt)}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      <Button variant="outline" size="sm">
-                        <Download className="h-3.5 w-3.5" />
-                        .{fmt.toUpperCase()}
-                      </Button>
-                    </a>
-                  ))}
-                </div>
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Export Cover Letter</p>
+              <div className="flex flex-wrap gap-2">
+                {FORMATS.map((fmt) => (
+                  <Button
+                    key={fmt}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => tailoringApi.exportCoverLetter(cover_letter.id as string, fmt)}
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    .{fmt.toUpperCase()}
+                  </Button>
+                ))}
               </div>
-            )}
+            </div>
           </CardContent>
         </Card>
       )}
@@ -277,25 +271,25 @@ function SessionDetail({ sessionId, onClose }: { sessionId: string; onClose: () 
             )}
             <div className="flex flex-wrap gap-2">
               {FORMATS.map((fmt) => (
-                <a key={fmt} href={tailoringApi.exportResumeUrl(rv.data!.id, fmt)} target="_blank" rel="noreferrer">
-                  <Button variant="outline" size="sm"><Download className="h-3.5 w-3.5" />.{fmt.toUpperCase()}</Button>
-                </a>
+                <Button key={fmt} variant="outline" size="sm" onClick={() => tailoringApi.exportResume(rv.data!.id, fmt)}>
+                  <Download className="h-3.5 w-3.5" />.{fmt.toUpperCase()}
+                </Button>
               ))}
             </div>
           </CardContent>
         </Card>
       )}
 
-      {cl.data && cl.data.id && (
+      {cl.data && (
         <Card>
           <CardHeader><CardTitle className="text-sm">Cover Letter — {cl.data.title}</CardTitle></CardHeader>
           <CardContent className="space-y-2">
             <p className="text-sm">{cl.data.introduction}</p>
             <div className="flex flex-wrap gap-2">
               {FORMATS.map((fmt) => (
-                <a key={fmt} href={tailoringApi.exportCoverLetterUrl(cl.data!.id as string, fmt)} target="_blank" rel="noreferrer">
-                  <Button variant="outline" size="sm"><Download className="h-3.5 w-3.5" />.{fmt.toUpperCase()}</Button>
-                </a>
+                <Button key={fmt} variant="outline" size="sm" onClick={() => tailoringApi.exportCoverLetter(cl.data!.id as string, fmt)}>
+                  <Download className="h-3.5 w-3.5" />.{fmt.toUpperCase()}
+                </Button>
               ))}
             </div>
           </CardContent>

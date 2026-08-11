@@ -1,15 +1,15 @@
-import { useState } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
-import { FileText, Download, Trash2, Sparkles, Star, ArrowLeft, Info } from "lucide-react";
-import { useResume, useDeleteResume } from "@/hooks/useResumes";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { ErrorState } from "@/components/common/ErrorState";
 import { resumesApi } from "@/api/resumes";
-import { formatDate } from "@/lib/utils";
+import { ErrorState } from "@/components/common/ErrorState";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ROUTES } from "@/constants/routes";
+import { useDeleteResume, useResume } from "@/hooks/useResumes";
+import { formatDate } from "@/lib/utils";
+import { ArrowLeft, Download, FileText, Info, Sparkles, Star, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 export function ResumeDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -77,12 +77,10 @@ export function ResumeDetailPage() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <a href={resumesApi.downloadUrl(resume.id)} target="_blank" rel="noreferrer">
-              <Button variant="outline">
-                <Download className="h-4 w-4" />
-                Download
-              </Button>
-            </a>
+            <Button variant="outline" onClick={() => resumesApi.download(resume.id)}>
+              <Download className="h-4 w-4" />
+              Download
+            </Button>
             <Button onClick={() => navigate(ROUTES.resumeAnalysis(resume.id))}>
               <Sparkles className="h-4 w-4" />
               View Analysis

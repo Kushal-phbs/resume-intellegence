@@ -316,6 +316,7 @@ class ResumeTailoringService:
 
     def _to_cover_letter_dto(self, letter: CoverLetter) -> CoverLetterDTO:
         return CoverLetterDTO(
+            id=letter.id,
             title=letter.title,
             greeting=letter.greeting,
             introduction=letter.introduction,

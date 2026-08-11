@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from io import BytesIO
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -78,12 +79,77 @@ class ExportService:
         if normalized not in {"md", "docx", "pdf"}:
             raise ValidationException("Unsupported export format")
 
-        extension = "md" if normalized == "md" else normalized
+        if normalized == "md":
+            extension = "md"
+            raw_bytes = content.encode("utf-8")
+        elif normalized == "docx":
+            extension = "docx"
+            raw_bytes = self._render_docx(content)
+        elif normalized == "pdf":
+            extension = "pdf"
+            raw_bytes = self._render_pdf(content)
+        else:
+            raise ValidationException("Unsupported export format")
+
         storage_key = self._storage.save(
-            content=content.encode("utf-8"),
+            content=raw_bytes,
             filename=f"{basename}-{uuid4()}.{extension}",
         )
         return self._storage.get_download_path(storage_key)
+
+    def _render_docx(self, markdown_text: str) -> bytes:
+        """Convert Markdown text to a valid OOXML DOCX using python-docx."""
+        from docx import Document  # type: ignore[import-untyped]
+
+        doc = Document()
+        for line in markdown_text.split("\n"):
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if stripped.startswith("# "):
+                doc.add_heading(stripped[2:], level=1)
+            elif stripped.startswith("## "):
+                doc.add_heading(stripped[3:], level=2)
+            elif stripped.startswith("- "):
+                doc.add_paragraph(stripped[2:], style="List Bullet")
+            else:
+                doc.add_paragraph(stripped)
+        buf = BytesIO()
+        doc.save(buf)
+        return buf.getvalue()
+
+    def _render_pdf(self, markdown_text: str) -> bytes:
+        """Convert Markdown text to a valid PDF using ReportLab."""
+        from reportlab.lib.pagesizes import letter
+        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.lib.units import inch
+        from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+
+        buf = BytesIO()
+        doc = SimpleDocTemplate(
+            buf,
+            pagesize=letter,
+            leftMargin=inch,
+            rightMargin=inch,
+            topMargin=inch,
+            bottomMargin=inch,
+        )
+        styles = getSampleStyleSheet()
+        story = []
+        for line in markdown_text.split("\n"):
+            stripped = line.strip()
+            if not stripped:
+                story.append(Spacer(1, 6))
+            elif stripped.startswith("# "):
+                story.append(Paragraph(stripped[2:], styles["Title"]))
+            elif stripped.startswith("## "):
+                story.append(Paragraph(stripped[3:], styles["Heading2"]))
+            elif stripped.startswith("- "):
+                story.append(Paragraph(f"• {stripped[2:]}", styles["Normal"]))
+            else:
+                story.append(Paragraph(stripped, styles["Normal"]))
+        doc.build(story)
+        return buf.getvalue()
 
     def _render_resume_markdown(self, version: ResumeTailoringVersion) -> str:
         lines = [

@@ -15,6 +15,7 @@ class CoverLetterDTO(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
+    id: UUID | None = None
     title: str = Field(min_length=1, max_length=255)
     greeting: str = Field(min_length=1)
     introduction: str = Field(min_length=1)

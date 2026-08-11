@@ -72,12 +72,10 @@ export function ResumeAnalysisPage() {
           <p className="mt-1 text-sm text-muted-foreground">{resume?.title ?? "Loading resume…"}</p>
         </div>
         <div className="flex gap-2">
-          <a href={resumesApi.downloadUrl(resumeId)} target="_blank" rel="noreferrer">
-            <Button variant="outline">
-              <Download className="h-4 w-4" />
-              Original File
-            </Button>
-          </a>
+          <Button variant="outline" onClick={() => resumesApi.download(resumeId)}>
+            <Download className="h-4 w-4" />
+            Original File
+          </Button>
           <Button onClick={() => runAnalysis.mutate()} isLoading={runAnalysis.isPending}>
             <RotateCcw className="h-4 w-4" />
             {latest.data ? "Re-run Analysis" : "Run Analysis"}

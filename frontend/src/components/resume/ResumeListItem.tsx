@@ -1,10 +1,10 @@
-import { Link } from "react-router-dom";
-import { FileText, Star, ChevronRight, Download, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { formatDate } from "@/lib/utils";
 import { resumesApi } from "@/api/resumes";
+import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/constants/routes";
+import { formatDate } from "@/lib/utils";
 import type { ResumeResponse } from "@/types/resume";
+import { ChevronRight, Download, FileText, Star, Trash2 } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export function ResumeListItem({
   resume,
@@ -30,15 +30,14 @@ export function ResumeListItem({
 
       {resume.is_primary && <Star className="h-3.5 w-3.5 shrink-0 text-primary" fill="currentColor" />}
 
-      <a
-        href={resumesApi.downloadUrl(resume.id)}
-        target="_blank"
-        rel="noreferrer"
+      <button
+        type="button"
+        onClick={() => resumesApi.download(resume.id)}
         aria-label="Download resume"
         className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
       >
         <Download className="h-4 w-4" />
-      </a>
+      </button>
 
       <Button
         variant="ghost"
