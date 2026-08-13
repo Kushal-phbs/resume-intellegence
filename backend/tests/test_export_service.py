@@ -8,13 +8,14 @@ from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
+from pypdf import PdfReader
+
 from app.core.exceptions import ResourceNotFoundException, ValidationException
 from app.repositories.cover_letter_repository import CoverLetterRepository
 from app.repositories.resume_repository import ResumeRepository
 from app.repositories.resume_version_repository import ResumeVersionRepository
 from app.services.export_service import ExportService
 from app.storage.base import StorageProvider
-from pypdf import PdfReader
 
 
 class _StorageStub(StorageProvider):
