@@ -1,12 +1,20 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Sparkles, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/common/EmptyState";
 import { ROUTES } from "@/constants/routes";
 import type { DashboardSuggestionResponse } from "@/types/dashboard";
 
+const INITIAL_VISIBLE = 5;
+
 export function AISuggestions({ items }: { items: DashboardSuggestionResponse[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? items : items.slice(0, INITIAL_VISIBLE);
+  const hasMore = items.length > INITIAL_VISIBLE;
+
   return (
     <Card>
       <CardHeader>
@@ -24,7 +32,7 @@ export function AISuggestions({ items }: { items: DashboardSuggestionResponse[] 
           />
         ) : (
           <div className="space-y-2">
-            {items.map((s, i) => (
+            {visible.map((s, i) => (
               <Link
                 key={`${s.analysis_id}-${i}`}
                 to={ROUTES.resumeAnalysis(s.resume_id)}
@@ -37,6 +45,21 @@ export function AISuggestions({ items }: { items: DashboardSuggestionResponse[] 
                 <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
               </Link>
             ))}
+            {hasMore && (
+              <div className="flex justify-center pt-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setExpanded((e) => !e)}
+                >
+                  {expanded ? (
+                    <>Show less <ChevronUp className="ml-1 h-4 w-4" /></>
+                  ) : (
+                    <>Show more <ChevronDown className="ml-1 h-4 w-4" /></>
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </CardContent>

@@ -1,8 +1,10 @@
 import { EmptyState } from "@/components/common/EmptyState";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatRelative } from "@/lib/utils";
 import type { DashboardNotificationResponse } from "@/types/dashboard";
-import { Bell, Briefcase, Download, FileText, LogIn, Mail, Wand2 } from "lucide-react";
+import { Bell, Briefcase, ChevronDown, ChevronUp, Download, FileText, LogIn, Mail, Wand2 } from "lucide-react";
+import { useState } from "react";
 
 const ACTIVITY_ICON: Record<string, typeof FileText> = {
   resume_uploaded: FileText,
@@ -14,6 +16,8 @@ const ACTIVITY_ICON: Record<string, typeof FileText> = {
   login: LogIn,
 };
 
+const INITIAL_VISIBLE = 5;
+
 /**
  * Backed by the dashboard overview's `unread_notifications` — the unified
  * GET /dashboard payload doesn't include a separate activity timeline
@@ -21,6 +25,10 @@ const ACTIVITY_ICON: Record<string, typeof FileText> = {
  * POST /dashboard/refresh action), so this doubles as the activity feed.
  */
 export function ActivityFeed({ items }: { items: DashboardNotificationResponse[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? items : items.slice(0, INITIAL_VISIBLE);
+  const hasMore = items.length > INITIAL_VISIBLE;
+
   return (
     <Card id="activity-feed">
       <CardHeader>
@@ -31,7 +39,7 @@ export function ActivityFeed({ items }: { items: DashboardNotificationResponse[]
           <EmptyState icon={Bell} title="All caught up" description="No recent activity to show right now." />
         ) : (
           <div className="space-y-3">
-            {items.map((n) => {
+            {visible.map((n) => {
               const Icon = ACTIVITY_ICON[n.activity_type] ?? Bell;
               return (
                 <div key={n.id} className="flex items-start gap-3">
@@ -45,6 +53,21 @@ export function ActivityFeed({ items }: { items: DashboardNotificationResponse[]
                 </div>
               );
             })}
+            {hasMore && (
+              <div className="flex justify-center pt-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setExpanded((e) => !e)}
+                >
+                  {expanded ? (
+                    <>Show less <ChevronUp className="ml-1 h-4 w-4" /></>
+                  ) : (
+                    <>Show more <ChevronDown className="ml-1 h-4 w-4" /></>
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </CardContent>

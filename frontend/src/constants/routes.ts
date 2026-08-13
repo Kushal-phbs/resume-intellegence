@@ -12,6 +12,7 @@ export const ROUTES = {
   tailoringDetail: (id: string) => `/tailoring/${id}`,
   chat: "/chat",
   chatConversation: (id: string) => `/chat/${id}`,
+  careerInsight: "/career-insight",
   settings: "/settings",
   profile: "/profile",
 };

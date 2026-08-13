@@ -937,16 +937,15 @@ class DashboardService:
                 )
             )
 
-        if has_unread_notifications:
-            actions.append(
-                DashboardQuickActionResponse(
-                    key="review_notifications",
-                    title="Review unread activity",
-                    description="Check recent dashboard updates and events.",
-                    route="/",
-                    priority=4,
-                )
+        actions.append(
+            DashboardQuickActionResponse(
+                key="ask_ai_career",
+                title="Ask AI about your career",
+                description="Get help with your resume, job matches, and applications.",
+                route="/chat",
+                priority=4,
             )
+        )
 
         actions.sort(key=lambda item: item.priority)
         return actions

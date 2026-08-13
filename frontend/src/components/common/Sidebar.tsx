@@ -1,11 +1,17 @@
-import { NavLink } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  LayoutDashboard, FileText, Brain, Briefcase,
-  MessageSquare, Settings, User, ChevronRight, Sparkles, X,
-} from "lucide-react";
 import { ROUTES } from "@/constants/routes";
 import { cn } from "@/lib/utils";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  Brain, Briefcase,
+  ChevronRight,
+  FileText,
+  LayoutDashboard,
+  MessageSquare, Settings,
+  Sparkles, TrendingUp,
+  User,
+  X,
+} from "lucide-react";
+import { NavLink } from "react-router-dom";
 
 export interface SidebarProps {
   open: boolean;
@@ -18,6 +24,7 @@ const NAV_ITEMS = [
   { label: "AI Studio", icon: Brain, to: ROUTES.tailoring },
   { label: "Job Analysis", icon: Briefcase, to: ROUTES.jobAnalysis },
   { label: "Chat", icon: MessageSquare, to: ROUTES.chat },
+  { label: "Career Insight", icon: TrendingUp, to: ROUTES.careerInsight },
 ];
 
 const ACCOUNT_ITEMS = [
